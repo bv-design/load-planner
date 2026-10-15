@@ -1,0 +1,45 @@
+name: Замечание по тестированию
+description: Ошибка, неверный расчёт или неудобство в планировщике
+labels: ["тестирование"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Раздел
+      options:
+        - Импорт пакинга
+        - Ручное создание мест
+        - Перемещение мест, кантование, штабелирование
+        - Автоматическая расстановка
+        - Нагрузка на оси и общий вес
+        - Транспорт и контейнеры
+        - Сохранение планов и файлы
+        - Другое
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Что делали
+      description: По шагам, чтобы можно было повторить
+      placeholder: "1. Импортировал пакинг ...\n2. Нажал «Расставить автоматически» ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Что ожидали
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Что получилось
+      description: Приложите скриншот, файл пакинга или план в JSON («Планы и файлы» → «План целиком»). Уберите коммерческие данные, если репозиторий публичный.
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Браузер
+      placeholder: Chrome 130, Windows 11
