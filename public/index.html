@@ -165,6 +165,13 @@ table.t th,table.t td{padding:5px 8px;border-bottom:1px solid var(--line);text-a
 table.t th{background:var(--panel-2);font-weight:600}
 table.t td.num{text-align:right}
 table.t tr.bad td{color:var(--danger)}
+.tabs{display:flex;border-bottom:1px solid var(--line);margin:-4px 0 14px}
+.tabs button{flex:1;border:0;background:transparent;padding:10px 12px;font-weight:500;color:var(--ink-2);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs button:hover{color:var(--ink)}
+.info{display:flex;gap:10px;align-items:flex-start;background:var(--steel-soft);border-radius:var(--radius-m);padding:12px 14px;font-size:13.5px;margin-bottom:12px}
+.info .icon{color:var(--steel);margin-top:2px}
+#impPaste{font-variant-numeric:tabular-nums;min-height:150px}
 .map .f{grid-column:auto}
 .map{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-top:12px}
 .plans{list-style:none;margin:0;padding:0}
@@ -250,7 +257,7 @@ table.t tr.bad td{color:var(--danger)}
       </div></div>
       <div class="status" id="status"></div>
       <div class="hint">
-        <span><kbd>ЛКМ</kbd> перетащить</span><span><kbd>ПКМ</kbd> меню</span><span><kbd>R</kbd> повернуть</span><span><kbd>T</kbd> кантовать</span><span><kbd>Стрелки</kbd> сдвиг 1 см, с Shift 10 см</span><span><kbd>Del</kbd> в Док 1</span>
+        <span><kbd>ЛКМ</kbd> перетащить</span><span><kbd>ПКМ</kbd> меню</span><span><kbd>R</kbd> повернуть</span><span><kbd>T</kbd> кантовать</span><span><kbd>Стрелки</kbd> сдвиг 1 см, с Shift 10 см</span><span><kbd>Ctrl+D</kbd> копировать</span><span><kbd>Del</kbd> в Док 1</span>
       </div>
       <div class="selcard" id="selcard"></div>
     </section>
@@ -272,6 +279,7 @@ table.t tr.bad td{color:var(--danger)}
   <form method="dialog" id="cargoForm">
     <div class="dlg-h"><h2 id="cargoDlgTitle">Новое грузовое место</h2><button class="btn ghost" value="cancel" aria-label="Закрыть">✕</button></div>
     <div class="dlg-b">
+      <p class="muted" id="cf_hint" style="margin:0 0 12px;display:none"></p>
       <div class="form">
         <div class="f s6"><label for="cf_name">Наименование</label><input id="cf_name" required placeholder="Например, лист Hardox 450 10 мм"></div>
         <div class="f s3"><label for="cf_pkg">Тип упаковки</label><select id="cf_pkg"></select></div>
@@ -301,21 +309,38 @@ table.t tr.bad td{color:var(--danger)}
       </div>
       <p class="err" id="cf_err"></p>
     </div>
-    <div class="dlg-f"><button class="btn" value="cancel">Отмена</button><button class="btn primary" id="cf_save" value="default">Сохранить</button></div>
+    <div class="dlg-f"><button class="btn" value="cancel">Отмена</button><button class="btn" id="cf_again" value="again" title="Сохранить и сразу открыть копию для следующего места">Сохранить и скопировать ещё</button><button class="btn primary" id="cf_save" value="default">Сохранить</button></div>
   </form>
 </dialog>
 
 <!-- Import dialog -->
 <dialog id="importDlg" class="wide">
-  <div class="dlg-h"><h2>Импорт пакинг-листа</h2><button class="btn ghost" data-close aria-label="Закрыть">✕</button></div>
+  <div class="dlg-h"><h2>Импорт грузовых мест</h2><button class="btn ghost" data-close aria-label="Закрыть">✕</button></div>
   <div class="dlg-b">
-    <div class="drop" id="drop">
-      <p style="margin:0 0 10px">Перетащите файл Excel или CSV сюда или выберите его</p>
-      <input type="file" id="impFile" accept=".xlsx,.xls,.csv,.txt">
+    <div class="tabs" role="tablist" aria-label="Источник">
+      <button role="tab" id="tabBtnFile" aria-selected="true" aria-controls="tabFile">Из файла</button>
+      <button role="tab" id="tabBtnText" aria-selected="false" aria-controls="tabText">Из текста</button>
     </div>
-    <div class="f s6" style="margin-top:12px"><label for="impPaste">Или вставьте строки, скопированные из Excel (с заголовком)</label>
-      <textarea id="impPaste" rows="4" placeholder="Наименование	Длина	Ширина	Высота	Вес брутто	Кол-во"></textarea></div>
-    <div class="row" style="margin-top:8px"><button class="btn" id="impParse">Разобрать вставленное</button><button class="btn ghost" id="impTemplate">Скачать шаблон</button></div>
+    <div id="tabFile" role="tabpanel" aria-labelledby="tabBtnFile">
+      <div class="drop" id="drop">
+        <p style="margin:0 0 10px">Перетащите файл Excel или CSV сюда или выберите его</p>
+        <input type="file" id="impFile" accept=".xlsx,.xls,.csv,.txt">
+      </div>
+      <div class="row" style="margin-top:8px"><button class="btn ghost" id="impTemplate">Скачать шаблон Excel/CSV</button></div>
+    </div>
+    <div id="tabText" role="tabpanel" aria-labelledby="tabBtnText" hidden>
+      <div class="info">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 11v6M12 7.5v.5"/></svg>
+        <div>Введите данные в формате: <b>Название, Длина, Ширина, Высота, Масса, Количество</b>. Количество можно не указывать, тогда будет 1.<br>
+          Каждое грузовое место начинается с новой строки.<br>
+          Разделитель столбцов: запятая, «;» или Tab. Для дробей через запятую (12,34) и названий с запятыми разделяйте столбцы «;» или Tab.<br>
+          Можно вставить строки прямо из Excel, в том числе вместе со строкой заголовков.</div>
+      </div>
+      <div class="f s6"><label for="impPaste">Параметры грузовых мест</label>
+        <textarea id="impPaste" rows="8" spellcheck="false" placeholder="Паллет, 1200, 800, 1440, 250, 5&#10;Отводы; 1400; 1100; 950; 380,5; 2&#10;Лист HARDOX 450	6000	2000	150	3400	3"></textarea></div>
+      <div class="row" style="margin-top:8px"><button class="btn primary" id="impParse">Распознать</button><span class="muted" style="align-self:center">или Ctrl+Enter</span></div>
+    </div>
+    <label class="chk" style="margin-top:14px"><input type="checkbox" id="impMerge" checked> Объединять одинаковые строки (количество суммируется)</label>
     <div id="impMap"></div>
     <p class="err" id="impErr"></p>
   </div>
@@ -401,7 +426,7 @@ let selUid = null;
 let showLabels = true;
 let plansCache = [];
 let api = false; const API = (p) => new URL('api/' + p, location.href).toString();
-const APP_VERSION = '1.0.0-test';
+const APP_VERSION = '1.2.0-test';
 
 const uid = () => Math.random().toString(36).slice(2,10);
 const r1 = v => Math.round(v*10)/10;
@@ -896,6 +921,7 @@ document.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('input,textarea,select,dialog')) return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); undo(); return; }
   const u = selUid && unitById(selUid); if (!u) return;
+  if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'd' || e.key.toLowerCase() === 'в')){ e.preventDefault(); openCargo(typeOf(u),'copy'); return; }
   const k = e.key.toLowerCase(); const step = e.shiftKey ? 10 : 1;
   if (k === 'r' || k === 'к'){ reorient(u,'r'); }
   else if (k === 't' || k === 'е'){ reorient(u,'t'); }
@@ -921,6 +947,7 @@ function openCtx(x, y, u){
   if (u){ const t = typeOf(u);
     h += '<div class="t">'+esc(t.name)+'</div>';
     h += '<button data-a="show">Показать в списке</button>';
+    h += '<button data-a="copy">Копировать место<span class="k">Ctrl+D</span></button>';
     h += '<button data-a="rot"'+(t.rotate?'':' disabled')+'>Повернуть<span class="k">R</span></button>';
     h += '<button data-a="tilt"'+(t.tilt?'':' disabled')+'>Кантовать<span class="k">T</span></button>';
     h += '<div class="g">Переместить в</div>';
@@ -935,7 +962,7 @@ function openCtx(x, y, u){
   ctx.innerHTML = h; ctx.style.display = 'block';
   const r = ctx.getBoundingClientRect(); ctx.style.left = Math.min(x, innerWidth - r.width - 8) + 'px'; ctx.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
   ctx.onclick = ev => { const b = ev.target.closest('button'); if (!b || b.disabled) return; hideCtx(); const a = b.dataset.a;
-    if (a === 'show') showInList(u.tid); else if (a === 'rot') reorient(u,'r'); else if (a === 'tilt') reorient(u,'t');
+    if (a === 'show') showInList(u.tid); else if (a === 'copy') openCargo(typeOf(u), 'copy'); else if (a === 'rot') reorient(u,'r'); else if (a === 'tilt') reorient(u,'t');
     else if (a === 'mv') moveOne(u, b.dataset.sp); else if (a === 'pack') autoPack(); else if (a === 'all') moveAll(b.dataset.sp); };
 }
 
@@ -957,6 +984,7 @@ function showInList(tid){ const el = document.querySelector('.ci[data-tid="'+tid
 /* ============================== UI rendering ============================== */
 const ICON_BOX = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>';
 const ICON_EDIT = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>';
+const ICON_COPY = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>';
 const ICON_DEL = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
 
 function renderList(){
@@ -973,14 +1001,15 @@ function renderList(){
         '<div class="ci-sub">'+esc(t.pkg)+', '+fmtCm(t.L)+' × '+fmtCm(t.W)+' × '+fmtCm(t.H)+' см, '+fmtKg(t.weight)+', '+t.qty+' шт</div>'+
         '<div class="ci-flags"><span>Ярусы: '+(t.stack ? (t.maxTiers ? 'до '+t.maxTiers : 'без огр.') : 'нельзя')+'</span><span>Поворот: '+(t.rotate?'да':'нет')+'</span><span>Кант.: '+(t.tilt?'да':'нет')+'</span>'+(t.maxTop?'<span>Сверху до '+fmtKg(t.maxTop)+'</span>':'')+'</div>'+
         '<div class="ci-place">'+place+'</div></div>'+
-        '<div class="ci-act"><button data-edit="'+t.id+'" title="Изменить" aria-label="Изменить">'+ICON_EDIT+'</button><button data-del="'+t.id+'" title="Удалить" aria-label="Удалить">'+ICON_DEL+'</button></div></div>';
+        '<div class="ci-act"><button data-copy="'+t.id+'" title="Копировать" aria-label="Копировать">'+ICON_COPY+'</button><button data-edit="'+t.id+'" title="Изменить" aria-label="Изменить">'+ICON_EDIT+'</button><button data-del="'+t.id+'" title="Удалить" aria-label="Удалить">'+ICON_DEL+'</button></div></div>';
     }).join('');
   }
   const N = S.units.length, W = S.units.reduce((s,u)=>s+typeOf(u).weight,0), V = S.units.reduce((s,u)=>s+u.dx*u.dy*u.dz,0)/1e6;
   document.getElementById('totals').innerHTML = 'Мест <b>'+N+'</b> Вес <b>'+fmtKg(W)+'</b> Объём <b>'+nf2.format(V)+' м³</b>';
 }
 document.getElementById('clist').addEventListener('click', e => {
-  const ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]'); const row = e.target.closest('.ci');
+  const ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]'), cp = e.target.closest('[data-copy]'); const row = e.target.closest('.ci');
+  if (cp){ openCargo(S.types.find(t => t.id === cp.dataset.copy), 'copy'); return; }
   if (ed){ openCargo(S.types.find(t => t.id === ed.dataset.edit)); return; }
   if (dl){ const t = S.types.find(x => x.id === dl.dataset.del); if (!confirm('Удалить «'+t.name+'» ('+t.qty+' шт)?')) return; pushHist(); S.types = S.types.filter(x => x !== t); S.units = S.units.filter(u => u.tid !== t.id); if (selUid && !unitById(selUid)) selUid = null; refresh(); return; }
   if (row){ const v = av(); const us = S.units.filter(u => u.tid === row.dataset.tid); const u = us.find(x => x.space === 'v:'+v.id) || us.find(x => !x.space.startsWith('v:')) || us[0];
@@ -1066,12 +1095,12 @@ function renderSel(){
     '<dl class="kv"><dt>Габариты (Д × В × Ш)</dt><dd>'+fmtCm(u.dx)+' × '+fmtCm(u.dy)+' × '+fmtCm(u.dz)+'</dd>'+
     (bounds(u.space) ? '<dt>Спереди / сзади</dt><dd>'+fmtCm(u.x)+' / '+fmtCm(bounds(u.space).L-u.x-u.dx)+' см</dd><dt>Слева / справа</dt><dd>'+fmtCm(u.z)+' / '+fmtCm(bounds(u.space).W-u.z-u.dz)+' см</dd><dt>От пола / до потолка</dt><dd>'+fmtCm(u.y)+' / '+fmtCm(bounds(u.space).H-u.y-u.dy)+' см</dd>' : '')+
     '</dl>'+(R.length ? '<div class="reasons">'+R.map(esc).join('<br>')+'</div>' : '')+
-    '<div class="row"><button class="btn sm" data-s="r"'+(t.rotate?'':' disabled')+'>Повернуть</button><button class="btn sm" data-s="t"'+(t.tilt?'':' disabled')+'>Кантовать</button>'+
+    '<div class="row"><button class="btn sm" data-s="c">Копировать</button><button class="btn sm" data-s="r"'+(t.rotate?'':' disabled')+'>Повернуть</button><button class="btn sm" data-s="t"'+(t.tilt?'':' disabled')+'>Кантовать</button>'+
     (u.space.startsWith('v:') ? '<button class="btn sm" data-s="d1">В Док 1</button>' : '<button class="btn sm" data-s="veh">В ТС</button>')+'</div><button class="x" data-s="x" aria-label="Снять выделение">✕</button>';
 }
 document.getElementById('selcard').addEventListener('click', e => {
   const b = e.target.closest('[data-s]'); if (!b) return; const u = unitById(selUid); if (!u) return; const a = b.dataset.s;
-  if (a === 'r') reorient(u,'r'); else if (a === 't') reorient(u,'t'); else if (a === 'd1') moveOne(u,'d1'); else if (a === 'veh') moveOne(u,'v:'+av().id); else if (a === 'x') select(null);
+  if (a === 'c') openCargo(typeOf(u),'copy'); else if (a === 'r') reorient(u,'r'); else if (a === 't') reorient(u,'t'); else if (a === 'd1') moveOne(u,'d1'); else if (a === 'veh') moveOne(u,'v:'+av().id); else if (a === 'x') select(null);
 });
 
 let lastV = null;
@@ -1093,12 +1122,26 @@ document.getElementById('cf_preset').addEventListener('change', e => { const p =
   if (p[0]) cf('L').value = p[0]; if (p[1]) cf('W').value = p[1]; if (p[2]) cf('H').value = p[2];
   if (e.target.selectedIndex <= 3){ cf('pkg').value = 'Паллета'; } else if (e.target.selectedIndex <= 5){ cf('pkg').value = 'Пачка листов'; cf('tilt').checked = false; } else { cf('pkg').value = 'Труба / связка'; } });
 const cf = id => document.getElementById('cf_'+id);
-function openCargo(t){
-  editingType = t || null; document.getElementById('cargoDlgTitle').textContent = t ? 'Изменить грузовое место' : 'Новое грузовое место';
-  const d = t || {name:'', pkg:'Ящик', L:'', W:'', H:'', weight:'', qty:1, stack:true, rotate:true, tilt:false, maxTiers:0, maxTop:0, color:PALETTE[S.types.length % PALETTE.length]};
+function nextName(name){
+  const has = n => S.types.some(t => t.name === n);
+  const m = name.match(/^(.*?)(\d+)\s*$/);
+  if (m){ let n = +m[2] + 1; while (has(m[1] + n)) n++; return m[1] + n; }
+  let n = 2; while (has(name + ' ' + n)) n++; return name + ' ' + n;
+}
+function freeColor(){ const used = new Set(S.types.map(t => t.color.toLowerCase())); return PALETTE.find(c => !used.has(c.toLowerCase())) || PALETTE[S.types.length % PALETTE.length]; }
+let cargoMode = 'new', copySource = null;
+function openCargo(t, mode){
+  cargoMode = mode || (t ? 'edit' : 'new'); editingType = cargoMode === 'edit' ? t : null; copySource = cargoMode === 'copy' ? t : null;
+  document.getElementById('cargoDlgTitle').textContent = {edit:'Изменить грузовое место', copy:'Копия грузового места', new:'Новое грузовое место'}[cargoMode];
+  let d = t || {name:'', pkg:'Ящик', L:'', W:'', H:'', weight:'', qty:1, stack:true, rotate:true, tilt:false, maxTiers:0, maxTop:0, color:freeColor()};
+  if (cargoMode === 'copy') d = Object.assign({}, t, {name:nextName(t.name), color:freeColor()});
+  const hint = document.getElementById('cf_hint');
+  hint.style.display = cargoMode === 'copy' ? '' : 'none';
+  hint.textContent = cargoMode === 'copy' ? 'Параметры скопированы из «' + t.name + '». Измените вес, габариты или другие поля и сохраните.' : '';
   cf('name').value = d.name; cf('pkg').value = d.pkg; cf('L').value = d.L; cf('W').value = d.W; cf('H').value = d.H; cf('wt').value = d.weight; cf('qty').value = d.qty;
   cf('stack').checked = d.stack; cf('rotate').checked = d.rotate; cf('tilt').checked = d.tilt; cf('tiers').value = d.maxTiers; cf('top').value = d.maxTop; cf('color').value = d.color; cf('preset').value = ''; cf('err').textContent = '';
-  cargoDlg.showModal(); cf('name').focus();
+  cargoDlg.showModal();
+  if (cargoMode === 'copy'){ cf('wt').focus(); cf('wt').select(); } else cf('name').focus();
 }
 document.getElementById('cargoForm').addEventListener('submit', e => {
   if (e.submitter && e.submitter.value === 'cancel') return;
@@ -1113,9 +1156,18 @@ document.getElementById('cargoForm').addEventListener('submit', e => {
     Object.assign(t, data);
     if (dimsChanged){ const us = S.units.filter(u => u.tid === t.id); const o = orients(t)[0]; us.forEach(u => { u.dx = o[0]; u.dy = o[1]; u.dz = o[2]; u.space = '__limbo'; }); toDock(us,'d1'); toast('Размеры изменены, места «'+t.name+'» перенесены в Док 1'); }
     syncUnits(t);
-  } else { const t = Object.assign({id:uid()}, data); S.types.push(t); syncUnits(t); toast('Добавлено в Док 1: '+q+' шт. Перетащите в кузов или нажмите «Расставить автоматически»'); }
+  } else {
+    const t = Object.assign({id:uid()}, data);
+    const at = copySource ? S.types.indexOf(copySource) : -1;
+    if (at >= 0) S.types.splice(at + 1, 0, t); else S.types.push(t);
+    syncUnits(t); savedType = t;
+    toast((cargoMode === 'copy' ? 'Копия «'+t.name+'» добавлена' : 'Добавлено')+' в Док 1: '+q+' шт. Перетащите в кузов или нажмите «Расставить автоматически»');
+  }
+  if (editingType) savedType = editingType;
   refresh();
+  if (e.submitter && e.submitter.value === 'again'){ const src = savedType; setTimeout(() => openCargo(src, 'copy'), 0); }
 });
+let savedType = null;
 document.getElementById('addCargoBtn').onclick = () => openCargo(null);
 
 /* ============================== vehicle dialog ============================== */
@@ -1167,7 +1219,8 @@ document.getElementById('vehForm').addEventListener('submit', e => {
 
 /* ============================== import ============================== */
 const importDlg = document.getElementById('importDlg');
-let impRows = null, impHdr = null, impMapping = null, impParsed = [];
+let impMode = null, impRows = null, impHdr = null, impMapping = null, impText = null;
+const impOpt = {unit:'auto', wmode:'piece', stack:true, rot:true, tilt:false, pack:true};
 const FIELDS = [
   ['name','Наименование',true],['pkg','Тип упаковки'],['dims','Габариты одной строкой'],['L','Длина'],['W','Ширина'],['H','Высота'],['weight','Вес',true],['qty','Количество'],['stack','Штабелирование'],['rotate','Поворот'],['tilt','Кантование']
 ];
@@ -1184,6 +1237,8 @@ const ALIAS = {
   rotate:{inc:['поворот','rotat']},
   tilt:{inc:['кант','tilt','на бок']}
 };
+const PKG_GUESS = [[/паллет|поддон|pallet/i,'Паллета'],[/труб|pipe|tube/i,'Труба / связка'],[/пачк|лист|plate|sheet/i,'Пачка листов'],[/рулон|coil/i,'Рулон'],[/бухт/i,'Бухта'],[/биг.?бэг|big.?bag/i,'Биг-бэг'],[/мешок|мешк/i,'Мешок'],[/бочк|бочон|drum/i,'Бочка'],[/короб|carton/i,'Коробка'],[/ящик|box|crate/i,'Ящик']];
+const guessPkg = name => { for (const [re,p] of PKG_GUESS) if (re.test(name)) return p; return 'Ящик'; };
 function norm(h){ return String(h||'').toLowerCase().replace(/[(),.:;\[\]]/g,' ').replace(/\s+/g,' ').trim(); }
 function scoreHeader(h, f){ const n = norm(h); const a = ALIAS[f]; if (!n) return 0;
   if (a.neg && a.neg.some(x => n.includes(x))) return 0.2;
@@ -1196,58 +1251,127 @@ function autoMap(hdr){
   if (m.dims !== undefined && (m.L !== undefined && m.W !== undefined && m.H !== undefined)) delete m.dims;
   return m;
 }
+function impError(t){ document.getElementById('impErr').textContent = t; }
 function setRows(rows){
   rows = rows.filter(r => r.some(c => String(c).trim() !== ''));
-  if (rows.length < 2){ document.getElementById('impErr').textContent = 'Нужна строка заголовков и хотя бы одна строка данных'; return; }
+  if (rows.length < 2){ impError('Нужна строка заголовков и хотя бы одна строка данных'); return; }
   let hi = 0, hs = -1;
   rows.slice(0,12).forEach((r,i) => { const s = r.reduce((a,c) => a + Math.max(...Object.keys(ALIAS).map(f => scoreHeader(c,f))), 0); if (s > hs){ hs = s; hi = i; } });
-  impHdr = rows[hi].map(c => String(c).trim()); impRows = rows.slice(hi+1); impMapping = autoMap(impHdr);
-  document.getElementById('impErr').textContent = ''; drawMap();
+  impHdr = rows[hi].map(c => String(c).trim()); impRows = rows.slice(hi+1).map((r,i) => ({r, n:hi+i+2})); impMapping = autoMap(impHdr); impMode = 'cols';
+  impError(''); drawMap();
 }
-function num(v){ if (typeof v === 'number') return v; const s = String(v).replace(/\s/g,'').replace(',','.').match(/-?\d+(\.\d+)?/); return s ? +s[0] : NaN; }
+function num(v){ if (typeof v === 'number') return v; const s = String(v).replace(/[\s\u00a0]/g,'').replace(',','.').match(/-?\d+(\.\d+)?/); return s ? +s[0] : NaN; }
+function strictNum(v){ if (typeof v === 'number') return v; const s = String(v).replace(/[\s\u00a0]/g,'').replace(',','.'); return /^-?\d+(\.\d+)?$/.test(s) ? +s : NaN; }
 function bool(v, def){ const s = norm(v); if (!s) return def; if (/^(да|yes|y|1|\+|true|можно|x|х|v)$/.test(s)) return true; if (/^(нет|no|n|0|-|false|нельзя)$/.test(s)) return false; return def; }
-function parseRows(){
-  const m = impMapping; const unit = document.getElementById('impUnit').value; const wmode = document.getElementById('impW').value;
-  const dS = document.getElementById('impStack').checked, dR = document.getElementById('impRot').checked, dT = document.getElementById('impTilt').checked;
-  const get = (r,f) => m[f] !== undefined && m[f] !== '' ? r[m[f]] : '';
-  const raw = impRows.map(r => {
+function splitLine(l){ const sep = l.includes('\t') ? '\t' : (l.includes(';') ? ';' : ','); return l.split(sep).map(c => c.trim()); }
+
+function parseText(t){
+  const lines = t.replace(/\r/g,'').split('\n').map((l,i) => ({n:i+1, l:l.trim()})).filter(x => x.l && !x.l.startsWith('#'));
+  if (!lines.length){ impError('Введите хотя бы одну строку'); return; }
+  const first = splitLine(lines[0].l);
+  const numeric = first.filter(c => !isNaN(strictNum(c))).length;
+  if (numeric < 3 && first.length >= 3 && first.slice(1).some(c => Object.keys(ALIAS).some(f => scoreHeader(c,f) >= 2))){
+    setRows(lines.map(x => splitLine(x.l))); return; }   // строка заголовков, как из Excel
+  impMode = 'text'; impText = lines.map(x => ({n:x.n, f:splitLine(x.l)})); impError(''); drawMap();
+}
+
+function detectK(raw){
+  const all = raw.flatMap(x => [x.L,x.W,x.H]).filter(v => v > 0); if (!all.length) return 1;
+  const mx = Math.max(...all);
+  if (mx <= 20 && all.some(v => v % 1)) return 100;
+  if (mx > 1650) return 0.1;
+  const maxes = raw.map(x => Math.max(x.L||0, x.W||0, x.H||0)).filter(v => v > 0).sort((a,b) => a-b);
+  return maxes[Math.floor(maxes.length/2)] >= 400 ? 0.1 : 1;
+}
+function rawRows(){
+  if (impMode === 'text') return impText.map(({n,f}) => {
+    const c = f.slice(); const nm = [];
+    while (c.length && isNaN(strictNum(c[0]))) nm.push(c.shift());   // название с запятыми внутри
+    const name = nm.filter(Boolean).join(', ');
+    const [L,W,H,w,q] = c.map(strictNum);
+    let err = '';
+    if (c.length < 4) err = 'нужно минимум: длина, ширина, высота, масса';
+    else if (c.some(x => isNaN(strictNum(x)))) err = 'не число: «'+c.find(x => isNaN(strictNum(x)))+'»';
+    else if (c.length > 5) err = 'лишние числа: если дроби через запятую, разделяйте столбцы «;» или Tab';
+    return {n, name, pkgRaw:'', L, W, H, w, qtyRaw:q, stack:'', rotate:'', tilt:'', err};
+  });
+  const m = impMapping; const get = (r,f) => m[f] !== undefined && m[f] !== '' ? r[m[f]] : '';
+  return impRows.map(({r,n}) => {
     let L = num(get(r,'L')), W = num(get(r,'W')), H = num(get(r,'H'));
     if (m.dims !== undefined && m.dims !== ''){ const d = String(get(r,'dims')).replace(/,/g,'.').match(/(\d+(?:\.\d+)?)\s*[x×х*\/]\s*(\d+(?:\.\d+)?)\s*[x×х*\/]\s*(\d+(?:\.\d+)?)/i); if (d){ L = +d[1]; W = +d[2]; H = +d[3]; } }
-    return {r, L, W, H}; });
-  let k = 1;
-  if (unit === 'auto'){ const all = raw.flatMap(x => [x.L,x.W,x.H]).filter(x => x > 0); const mx = Math.max(0,...all);
-    k = mx > 0 && mx <= 20 && all.some(x => x % 1) ? 100 : (mx > 1600 ? 0.1 : 1); }
-  else k = {mm:0.1, cm:1, m:100}[unit];
-  impParsed = raw.map(({r,L,W,H}) => {
-    const qtyRaw = num(get(r,'qty')); const qty = qtyRaw > 0 ? Math.round(qtyRaw) : 1; let w = num(get(r,'weight')); if (wmode === 'row' && w > 0) w = w/qty;
-    const st = get(r,'stack'); let stack = bool(st, dS), maxTiers = 0; const sn = num(st); if (!isNaN(sn) && /^\s*\d+\s*$/.test(String(st))){ if (sn <= 1){ stack = false; } else { stack = true; maxTiers = Math.round(sn); } }
-    const it = {name:String(get(r,'name')||'').trim() || 'Без названия', pkg:String(get(r,'pkg')||'').trim() || 'Ящик', L:r1(L*k), W:r1(W*k), H:r1(H*k), weight:Math.round((w||0)*10)/10, qty, stack, maxTiers, maxTop:0, rotate:bool(get(r,'rotate'),dR), tilt:bool(get(r,'tilt'),dT)};
-    it.ok = it.L > 0 && it.W > 0 && it.H > 0 && w > 0 && qty <= 999; return it; });
-  impParsed._k = k; return impParsed;
+    return {n, name:String(get(r,'name')||'').trim(), pkgRaw:String(get(r,'pkg')||'').trim(), L, W, H, w:num(get(r,'weight')), qtyRaw:num(get(r,'qty')), stack:get(r,'stack'), rotate:get(r,'rotate'), tilt:get(r,'tilt'), err:''};
+  });
+}
+function parseRows(){
+  const raw = rawRows();
+  const k = impOpt.unit === 'auto' ? detectK(raw.filter(x => !x.err)) : {mm:0.1, cm:1, m:100}[impOpt.unit];
+  let items = raw.map(x => {
+    const qty = x.qtyRaw > 0 ? Math.round(x.qtyRaw) : 1; let w = x.w; if (impOpt.wmode === 'row' && w > 0) w = w/qty;
+    let stack = bool(x.stack, impOpt.stack), maxTiers = 0; const sn = num(x.stack); if (!isNaN(sn) && /^\s*\d+\s*$/.test(String(x.stack))){ if (sn <= 1) stack = false; else { stack = true; maxTiers = Math.round(sn); } }
+    const name = x.name || 'Место, строка ' + x.n;
+    const it = {name, pkg:x.pkgRaw || guessPkg(name), L:r1(x.L*k), W:r1(x.W*k), H:r1(x.H*k), weight:Math.round((w||0)*10)/10, qty, stack, maxTiers, maxTop:0, rotate:bool(x.rotate,impOpt.rot), tilt:bool(x.tilt,impOpt.tilt), lines:[x.n], err:x.err};
+    if (!it.err){ if (!(it.L > 0 && it.W > 0 && it.H > 0)) it.err = 'нет размеров'; else if (!(w > 0)) it.err = 'нет массы'; }
+    return it; });
+  if (document.getElementById('impMerge').checked){
+    const map = new Map(); const out = [];
+    for (const it of items){ if (it.err){ out.push(it); continue; }
+      const key = [it.name.toLowerCase(), it.pkg, it.L, it.W, it.H, it.weight, it.stack, it.maxTiers, it.rotate, it.tilt].join('|');
+      const ex = map.get(key); if (ex){ ex.qty += it.qty; ex.lines.push(...it.lines); } else { map.set(key, it); out.push(it); } }
+    items = out;
+  }
+  items.forEach(it => { if (!it.err && it.qty > 999) it.err = 'больше 999 мест в одной позиции'; it.ok = !it.err; });
+  items._k = k; return items;
 }
 function drawMap(){
-  const opts = i => '<option value="">не использовать</option>' + impHdr.map((h,j) => '<option value="'+j+'"'+(i===j?' selected':'')+'>'+esc(h || 'Столбец '+(j+1))+'</option>').join('');
-  document.getElementById('impMap').innerHTML =
-    '<div class="fs" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-weight:600">Сопоставление столбцов</div>'+
-    '<div class="map">'+FIELDS.map(([f,l]) => '<div class="f"><label for="im_'+f+'">'+l+'</label><select id="im_'+f+'" data-f="'+f+'">'+opts(impMapping[f])+'</select></div>').join('')+'</div>'+
-    '<div class="map"><div class="f"><label for="impUnit">Единицы размеров</label><select id="impUnit"><option value="auto">Определить автоматически</option><option value="mm">миллиметры</option><option value="cm">сантиметры</option><option value="m">метры</option></select></div>'+
-    '<div class="f"><label for="impW">Вес в строке указан</label><select id="impW"><option value="piece">за одно место</option><option value="row">за всю строку</option></select></div>'+
-    '<div class="f"><span class="lab">Если в файле не указано</span><label class="chk"><input type="checkbox" id="impStack" checked> штабелировать</label><label class="chk"><input type="checkbox" id="impRot" checked> поворачивать</label><label class="chk"><input type="checkbox" id="impTilt"> кантовать</label></div>'+
-    '<div class="f"><span class="lab">После импорта</span><label class="chk"><input type="checkbox" id="impPack" checked> сразу расставить в текущий транспорт</label></div></div>'+
+  const sel = (id, opts, v) => '<select id="'+id+'">'+opts.map(([k,l]) => '<option value="'+k+'"'+(k===v?' selected':'')+'>'+l+'</option>').join('')+'</select>';
+  let h = '';
+  if (impMode === 'cols'){
+    const opts = i => '<option value="">не использовать</option>' + impHdr.map((x,j) => '<option value="'+j+'"'+(i===j?' selected':'')+'>'+esc(x || 'Столбец '+(j+1))+'</option>').join('');
+    h += '<div class="fs" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-weight:600">Сопоставление столбцов</div>'+
+      '<div class="map">'+FIELDS.map(([f,l]) => '<div class="f"><label for="im_'+f+'">'+l+'</label><select id="im_'+f+'" data-f="'+f+'">'+opts(impMapping[f])+'</select></div>').join('')+'</div>';
+  } else h += '<div class="fs" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-weight:600">Параметры распознавания</div>';
+  h += '<div class="map"><div class="f"><label for="impUnit">Единицы размеров</label>'+sel('impUnit',[['auto','Определить автоматически'],['mm','миллиметры'],['cm','сантиметры'],['m','метры']],impOpt.unit)+'</div>'+
+    '<div class="f"><label for="impW">Масса в строке указана</label>'+sel('impW',[['piece','за одно место'],['row','за всю строку']],impOpt.wmode)+'</div>'+
+    '<div class="f"><span class="lab">'+(impMode==='cols'?'Если в файле не указано':'Правила для всех мест')+'</span><label class="chk"><input type="checkbox" id="impStack"'+(impOpt.stack?' checked':'')+'> штабелировать</label><label class="chk"><input type="checkbox" id="impRot"'+(impOpt.rot?' checked':'')+'> поворачивать</label><label class="chk"><input type="checkbox" id="impTilt"'+(impOpt.tilt?' checked':'')+'> кантовать</label></div>'+
+    '<div class="f"><span class="lab">После импорта</span><label class="chk"><input type="checkbox" id="impPack"'+(impOpt.pack?' checked':'')+'> сразу расставить в текущий транспорт</label></div></div>'+
     '<div id="impPrev"></div>';
-  document.getElementById('impMap').querySelectorAll('select,input').forEach(el => el.addEventListener('change', () => { if (el.dataset.f) impMapping[el.dataset.f] = el.value === '' ? '' : +el.value; drawPrev(); }));
+  const box = document.getElementById('impMap'); box.innerHTML = h;
+  box.querySelectorAll('select,input').forEach(el => el.addEventListener('change', () => {
+    if (el.dataset.f) impMapping[el.dataset.f] = el.value === '' ? '' : +el.value;
+    impOpt.unit = document.getElementById('impUnit').value; impOpt.wmode = document.getElementById('impW').value;
+    impOpt.stack = document.getElementById('impStack').checked; impOpt.rot = document.getElementById('impRot').checked; impOpt.tilt = document.getElementById('impTilt').checked; impOpt.pack = document.getElementById('impPack').checked;
+    drawPrev(); }));
   drawPrev();
 }
 function drawPrev(){
+  const box = document.getElementById('impPrev'); if (!box) return;
   const P = parseRows(); const ok = P.filter(x => x.ok); const unitTxt = {0.1:'мм', 1:'см', 100:'м'}[P._k];
-  const places = ok.reduce((s,x)=>s+x.qty,0), wt = ok.reduce((s,x)=>s+x.qty*x.weight,0);
-  document.getElementById('impPrev').innerHTML = '<p class="muted" style="margin:12px 0 0">Распознано строк: '+ok.length+' из '+P.length+(P.length>ok.length?' (без размеров или веса пропускаются)':'')+'. Мест: '+places+', вес '+fmtT(wt)+'. Исходные размеры в '+unitTxt+'.</p>'+
-    '<div class="tablewrap"><table class="t"><thead><tr><th>Наименование</th><th>Упаковка</th><th>Д × Ш × В, см</th><th>Вес места, кг</th><th>Кол-во</th><th>Ярусы</th><th>Поворот</th><th>Кант.</th></tr></thead><tbody>'+
-    P.slice(0,60).map(x => '<tr class="'+(x.ok?'':'bad')+'"><td>'+esc(x.name)+'</td><td>'+esc(x.pkg)+'</td><td class="num">'+(x.L>0?fmtCm(x.L)+' × '+fmtCm(x.W)+' × '+fmtCm(x.H):'нет размеров')+'</td><td class="num">'+(x.weight>0?nf.format(x.weight):'нет веса')+'</td><td class="num">'+x.qty+'</td><td>'+(x.stack?(x.maxTiers?'до '+x.maxTiers:'без огр.'):'нельзя')+'</td><td>'+(x.rotate?'да':'нет')+'</td><td>'+(x.tilt?'да':'нет')+'</td></tr>').join('')+
-    '</tbody></table></div>'+(P.length>60?'<p class="muted">Показаны первые 60 строк</p>':'');
+  const places = ok.reduce((s,x)=>s+x.qty,0), wt = ok.reduce((s,x)=>s+x.qty*x.weight,0), bad = P.length - ok.length;
+  const merged = document.getElementById('impMerge').checked ? ok.filter(x => x.lines.length > 1).length : 0;
+  box.innerHTML = '<p class="muted" style="margin:12px 0 0">Позиций: '+ok.length+', мест: '+places+', масса '+fmtT(wt)+'. Размеры прочитаны в '+unitTxt+(impOpt.unit==='auto'?' (определено автоматически, можно сменить выше)':'')+'.'+
+      (merged ? ' Объединено одинаковых позиций: '+merged+'.' : '')+(bad ? ' <span style="color:var(--danger)">Строк с ошибками: '+bad+', они не будут добавлены.</span>' : '')+'</p>'+
+    '<div class="tablewrap"><table class="t"><thead><tr><th>Строка</th><th>Наименование</th><th>Упаковка</th><th>Д × Ш × В, см</th><th>Масса места, кг</th><th>Кол-во</th><th>Ярусы</th><th>Поворот</th><th>Кант.</th><th>Замечание</th></tr></thead><tbody>'+
+    P.slice(0,100).map(x => '<tr class="'+(x.ok?'':'bad')+'"><td class="num">'+x.lines.join(', ')+'</td><td>'+esc(x.name)+'</td><td>'+esc(x.pkg)+'</td><td class="num">'+(x.L>0?fmtCm(x.L)+' × '+fmtCm(x.W)+' × '+fmtCm(x.H):'—')+'</td><td class="num">'+(x.weight>0?nf.format(x.weight):'—')+'</td><td class="num">'+x.qty+'</td><td>'+(x.stack?(x.maxTiers?'до '+x.maxTiers:'без огр.'):'нельзя')+'</td><td>'+(x.rotate?'да':'нет')+'</td><td>'+(x.tilt?'да':'нет')+'</td><td>'+esc(x.err||'')+'</td></tr>').join('')+
+    '</tbody></table></div>'+(P.length>100?'<p class="muted">Показаны первые 100 позиций</p>':'');
   const go = document.getElementById('impGo'); go.disabled = !ok.length; go.textContent = ok.length ? 'Добавить '+places+' мест' : 'Добавить места';
 }
-document.getElementById('importBtn').onclick = () => { impRows = null; document.getElementById('impMap').innerHTML = ''; document.getElementById('impErr').textContent = ''; document.getElementById('impFile').value = ''; document.getElementById('impPaste').value = ''; document.getElementById('impGo').disabled = true; importDlg.showModal(); };
+function resetImpPreview(){ impMode = null; document.getElementById('impMap').innerHTML = ''; impError(''); const go = document.getElementById('impGo'); go.disabled = true; go.textContent = 'Добавить места'; }
+function setTab(t){
+  const text = t === 'text';
+  document.getElementById('tabBtnFile').setAttribute('aria-selected', !text); document.getElementById('tabBtnText').setAttribute('aria-selected', text);
+  document.getElementById('tabFile').hidden = text; document.getElementById('tabText').hidden = !text;
+  resetImpPreview();
+  try { localStorage.setItem('loadplan.impTab', t); } catch(_){}
+  if (text) setTimeout(() => document.getElementById('impPaste').focus(), 0);
+}
+document.getElementById('tabBtnFile').onclick = () => setTab('file');
+document.getElementById('tabBtnText').onclick = () => setTab('text');
+document.getElementById('impMerge').addEventListener('change', drawPrev);
+document.getElementById('importBtn').onclick = () => {
+  document.getElementById('impFile').value = ''; document.getElementById('impPaste').value = '';
+  let t = 'file'; try { t = localStorage.getItem('loadplan.impTab') || 'file'; } catch(_){}
+  importDlg.showModal(); setTab(t);
+};
 importDlg.addEventListener('click', e => { if (e.target.closest('[data-close]')) importDlg.close(); });
 function readFile(f){
   if (!f) return; const rd = new FileReader();
@@ -1255,7 +1379,7 @@ function readFile(f){
     if (typeof XLSX === 'undefined') throw new Error('nolib');
     const wb = XLSX.read(new Uint8Array(rd.result), {type:'array'}); const ws = wb.Sheets[wb.SheetNames[0]];
     setRows(XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true}));
-  } catch(err){ document.getElementById('impErr').textContent = err.message === 'nolib' ? 'Не загрузилась библиотека чтения Excel. Вставьте строки через буфер обмена' : 'Не удалось прочитать файл. Проверьте, что это Excel или CSV'; } };
+  } catch(err){ impError(err.message === 'nolib' ? 'Не загрузилась библиотека чтения Excel. Воспользуйтесь вкладкой «Из текста»' : 'Не удалось прочитать файл. Проверьте, что это Excel или CSV'); } };
   rd.readAsArrayBuffer(f);
 }
 document.getElementById('impFile').addEventListener('change', e => readFile(e.target.files[0]));
@@ -1263,21 +1387,19 @@ const drop = document.getElementById('drop');
 ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', e => readFile(e.dataTransfer.files[0]));
-document.getElementById('impParse').onclick = () => {
-  const t = document.getElementById('impPaste').value; if (!t.trim()){ document.getElementById('impErr').textContent = 'Вставьте строки из Excel в поле выше'; return; }
-  const lines = t.replace(/\r/g,'').split('\n'); const sep = t.includes('\t') ? '\t' : (t.includes(';') ? ';' : ',');
-  setRows(lines.map(l => l.split(sep)));
-};
+document.getElementById('impParse').onclick = () => parseText(document.getElementById('impPaste').value);
+document.getElementById('impPaste').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); parseText(e.target.value); } });
 document.getElementById('impGo').onclick = () => {
   const ok = parseRows().filter(x => x.ok); if (!ok.length) return; pushHist();
-  ok.forEach(x => { const t = Object.assign({id:uid(), color:PALETTE[S.types.length % PALETTE.length]}, x); delete t.ok; S.types.push(t); syncUnits(t); });
+  ok.forEach(x => { const t = Object.assign({id:uid(), color:freeColor()}, x); delete t.ok; delete t.err; delete t.lines; S.types.push(t); syncUnits(t); });
   importDlg.close();
-  if (document.getElementById('impPack').checked){ const v = av(); const list = S.units.filter(u => !u.space.startsWith('v:') || u.space === 'v:'+v.id); const un = pack('v:'+v.id, list, S.strategy); balance(v); if (un.length) toDock(un,'d1');
-    toast('Импортировано позиций: '+ok.length+'. '+(un.length ? 'Не поместилось мест: '+un.length+', они в Док 1' : 'Всё погружено')); }
-  else toast('Импортировано позиций: '+ok.length+', места в Док 1');
+  const places = ok.reduce((s,x)=>s+x.qty,0);
+  if (impOpt.pack){ const v = av(); const list = S.units.filter(u => !u.space.startsWith('v:') || u.space === 'v:'+v.id); const un = pack('v:'+v.id, list, S.strategy); balance(v); if (un.length) toDock(un,'d1');
+    toast('Добавлено позиций: '+ok.length+', мест: '+places+'. '+(un.length ? 'Не поместилось мест: '+un.length+', они в Док 1' : 'Всё погружено')); }
+  else toast('Добавлено позиций: '+ok.length+', мест: '+places+'. Места в Док 1');
   refresh();
 };
-document.getElementById('impTemplate').onclick = async () => {
+document.getElementById('impTemplate').onclick = () => {
   const csv = '\ufeffНаименование;Упаковка;Длина, мм;Ширина, мм;Высота, мм;Вес брутто, кг;Кол-во мест;Штабелировать;Поворот;Кантовать\nЛист Hardox 450 10 мм;Пачка листов;6000;2000;150;14200;2;3;да;нет\nТруба 530x8;Труба / связка;12000;430;430;1620;9;да;да;да\nОтводы;Ящик;1400;1100;950;380;4;да;да;нет\n';
   saveFile('Шаблон пакинга.csv', csv);
 };
