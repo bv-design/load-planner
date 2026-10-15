@@ -230,6 +230,7 @@ table.t tr.bad td{color:var(--danger)}
         <div class="row">
           <button class="btn primary" id="addCargoBtn">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Создать место</button>
+          <button class="btn" id="addPipeBtn">Трубы</button>
           <button class="btn" id="importBtn">Импорт пакинга</button>
         </div>
       </div>
@@ -253,6 +254,7 @@ table.t tr.bad td{color:var(--danger)}
           <option value="front">От передней стенки</option>
         </select>
         <button class="btn primary" id="packBtn">Расставить автоматически</button>
+        <button class="btn" id="distBtn" title="Расставить всё, добавляя машины этого типа, пока груз не закончится">Распределить по машинам</button>
         <button class="btn" id="balanceBtn" title="Сдвинуть груз для равномерной нагрузки на оси">Сбалансировать</button>
       </div></div>
       <div class="status" id="status"></div>
@@ -313,6 +315,28 @@ table.t tr.bad td{color:var(--danger)}
   </form>
 </dialog>
 
+<!-- Pipe dialog -->
+<dialog id="pipeDlg">
+  <form method="dialog" id="pipeForm">
+    <div class="dlg-h"><h2 id="pipeDlgTitle">Трубы</h2><button class="btn ghost" value="cancel" aria-label="Закрыть">✕</button></div>
+    <div class="dlg-b">
+      <p class="muted" id="pf_hint" style="margin:0 0 12px;display:none"></p>
+      <div class="form">
+        <div class="f s6"><label for="pf_name">Наименование</label><input id="pf_name" placeholder="Например, Труба бесшовная 219х6 ГОСТ 8732-78"><span class="muted">Диаметр и стенка подставятся из названия вида «219х6» или «114,3×30,3»</span></div>
+        <div class="f"><label for="pf_D">Наружный диаметр, мм</label><input id="pf_D" type="number" min="1" step="0.1"></div>
+        <div class="f"><label for="pf_t">Стенка, мм</label><input id="pf_t" type="number" min="0.1" step="0.1"></div>
+        <div class="f"><label for="pf_len">Длина трубы, мм</label><input id="pf_len" type="number" min="100" step="1" value="12000"></div>
+        <div class="f"><label for="pf_qty">Количество, шт</label><input id="pf_qty" type="number" min="1" max="9999" step="1" value="1"></div>
+        <div class="f"><label for="pf_mat">Материал</label><select id="pf_mat"></select></div>
+        <div class="f"><label for="pf_color">Цвет</label><input id="pf_color" type="color"></div>
+      </div>
+      <div class="info" id="pf_calc" style="margin-top:14px"></div>
+      <p class="err" id="pf_err"></p>
+    </div>
+    <div class="dlg-f"><button class="btn" value="cancel">Отмена</button><button class="btn" value="again" id="pf_again">Сохранить и скопировать ещё</button><button class="btn primary" value="default">Сохранить</button></div>
+  </form>
+</dialog>
+
 <!-- Import dialog -->
 <dialog id="importDlg" class="wide">
   <div class="dlg-h"><h2>Импорт грузовых мест</h2><button class="btn ghost" data-close aria-label="Закрыть">✕</button></div>
@@ -323,8 +347,8 @@ table.t tr.bad td{color:var(--danger)}
     </div>
     <div id="tabFile" role="tabpanel" aria-labelledby="tabBtnFile">
       <div class="drop" id="drop">
-        <p style="margin:0 0 10px">Перетащите файл Excel или CSV сюда или выберите его</p>
-        <input type="file" id="impFile" accept=".xlsx,.xls,.csv,.txt">
+        <p style="margin:0 0 10px">Перетащите файл Excel, CSV или JSON из 1С сюда или выберите его</p>
+        <input type="file" id="impFile" accept=".xlsx,.xls,.csv,.txt,.json">
       </div>
       <div class="row" style="margin-top:8px"><button class="btn ghost" id="impTemplate">Скачать шаблон Excel/CSV</button></div>
     </div>
@@ -334,10 +358,11 @@ table.t tr.bad td{color:var(--danger)}
         <div>Введите данные в формате: <b>Название, Длина, Ширина, Высота, Масса, Количество</b>. Количество можно не указывать, тогда будет 1.<br>
           Каждое грузовое место начинается с новой строки.<br>
           Разделитель столбцов: запятая, «;» или Tab. Для дробей через запятую (12,34) и названий с запятыми разделяйте столбцы «;» или Tab.<br>
+          Трубы: <b>Название с размером, Длина в мм, Количество</b>, например «Труба 219х6, 12000, 40». Диаметр и стенка берутся из названия, масса считается сама.<br>
           Можно вставить строки прямо из Excel, в том числе вместе со строкой заголовков.</div>
       </div>
       <div class="f s6"><label for="impPaste">Параметры грузовых мест</label>
-        <textarea id="impPaste" rows="8" spellcheck="false" placeholder="Паллет, 1200, 800, 1440, 250, 5&#10;Отводы; 1400; 1100; 950; 380,5; 2&#10;Лист HARDOX 450	6000	2000	150	3400	3"></textarea></div>
+        <textarea id="impPaste" rows="8" spellcheck="false" placeholder="Паллет, 1200, 800, 1440, 250, 5&#10;Труба 219х6 ГОСТ 8732-78, 12000, 40&#10;Отводы; 1400; 1100; 950; 380,5; 2&#10;Лист HARDOX 450	6000	2000	150	3400	3"></textarea></div>
       <div class="row" style="margin-top:8px"><button class="btn primary" id="impParse">Распознать</button><span class="muted" style="align-self:center">или Ctrl+Enter</span></div>
     </div>
     <label class="chk" style="margin-top:14px"><input type="checkbox" id="impMerge" checked> Объединять одинаковые строки (количество суммируется)</label>
@@ -412,6 +437,7 @@ const PRESETS = {
     tare:{steer:5000,drive:2500,kp:2200,tr:3800}, lim:{steer:8000,drive:11500,tr:24000}},
   van72:{name:'Фургон 7,2 м, 10 т', kind:'rigid', L:720,W:245,H:240,payload:10000,deckH:110,gross:18000,
     steerX:-150,rearX:430,rearAxles:1, tare:{steer:4200,rear:3300}, lim:{steer:7500,rear:11500}},
+  wagon:{name:'Полувагон 12,7 м, 63 т', kind:'cont', open:true, L:1268,W:283,H:217,payload:63000,deckH:140},
   c20:{name:'Контейнер 20′ DC', kind:'cont', L:589,W:235,H:239,payload:28200,deckH:15},
   c40:{name:'Контейнер 40′ DC', kind:'cont', L:1203,W:235,H:239,payload:26700,deckH:15},
   c40hc:{name:'Контейнер 40′ HC', kind:'cont', L:1203,W:235,H:269,payload:26500,deckH:15},
@@ -426,7 +452,7 @@ let selUid = null;
 let showLabels = true;
 let plansCache = [];
 let api = false; const API = (p) => new URL('api/' + p, location.href).toString();
-const APP_VERSION = '1.2.0-test';
+const APP_VERSION = '1.3.0-test';
 
 const uid = () => Math.random().toString(36).slice(2,10);
 const r1 = v => Math.round(v*10)/10;
@@ -442,7 +468,7 @@ function blankState(){ const v = makeVehicle('tent136'); return {name:'Новы�
 
 const av = () => S.vehicles.find(v => v.id === S.activeV) || S.vehicles[0];
 const vehOf = sp => sp && sp.startsWith('v:') ? S.vehicles.find(v => 'v:'+v.id === sp) : null;
-const typeOf = u => S.types.find(t => t.id === u.tid);
+const typeOf = u => u.blk ? blockType(u) : S.types.find(t => t.id === u.tid);
 const unitById = id => S.units.find(u => u.uid === id);
 const dockLen = () => Math.max(av().L, 1360);
 
@@ -619,6 +645,126 @@ function balance(v){
   us.forEach(u => { u.x = r1(u.x + bestD); u.z = r1(u.z + dz); });
 }
 
+/* ============================== pipes ============================== */
+const MATERIALS = [
+  {id:'steel',rho:7850,name:'Сталь'},{id:'stainless',rho:7900,name:'Нержавейка'},{id:'copper',rho:8900,name:'Медь'},
+  {id:'aluminum',rho:2700,name:'Алюминий'},{id:'brass',rho:8500,name:'Латунь'},{id:'titanium',rho:4500,name:'Титан'},
+  {id:'cast_iron',rho:7200,name:'Чугун'},{id:'nickel',rho:8900,name:'Никель'},{id:'zinc',rho:7130,name:'Цинк'},{id:'lead',rho:11340,name:'Свинец'}];
+const matOf = id => MATERIALS.find(m => m.id === id) || MATERIALS[0];
+const isPipe = t => !!t && t.kind === 'pipe';
+const pipeKgM = t => Math.PI * t.t * (t.D - t.t) / 1e6 * matOf(t.mat).rho;
+const pipeKg = t => pipeKgM(t) * t.len / 1000;
+const fmtPipe = t => 'Ø' + nf.format(t.D) + ' × ' + nf.format(t.t) + ', ' + nf.format(t.len/1000) + ' м';
+function parseDT(name){ const m = String(name||'').match(/(\d+[,.]?\d*)\s*[хx×]\s*(\d+[,.]?\d*)/i); return m ? {d:parseFloat(m[1].replace(',','.')), t:parseFloat(m[2].replace(',','.'))} : null; }
+
+// Гравитационная укладка «в седло» (перенесено из «Калькулятор загрузки — ТРУБЫ»), размеры в мм
+function gravSim(W, H, initPipes){
+  const pipes = initPipes ? initPipes.map(p => ({cx:p.cx, cy:p.cy, r:p.r, diameter:p.diameter, posId:p.posId})) : [];
+  function findY(cx, r){ let best = r;
+    for (const p of pipes){ const dx = Math.abs(cx - p.cx), md = r + p.r; if (dx < md){ const c = p.cy + Math.sqrt(md*md - dx*dx); if (c > best) best = c; } }
+    return best; }
+  function bestPos(r){
+    const cands = [r, W - r];
+    for (let i = 0; i < pipes.length; i++){ const p = pipes[i]; cands.push(p.cx - p.r - r, p.cx + p.r + r);
+      for (let j = i + 1; j < pipes.length; j++){ const q = pipes[j], a = p.r + r, b = q.r + r, D = Math.abs(p.cx - q.cx);
+        if (D < a + b && D > Math.abs(a - b)) cands.push(p.cx + (D*D + a*a - b*b) / (2*D) * (q.cx > p.cx ? 1 : -1)); } }
+    let best = null;
+    for (const cx of cands){
+      if (cx - r < -0.1 || cx + r > W + 0.1) continue;
+      const cy = findY(cx, r); if (cy + r > H + 0.1) continue;
+      let ok = true; for (const pp of pipes){ const ddx = cx - pp.cx, ddy = cy - pp.cy; if (Math.sqrt(ddx*ddx + ddy*ddy) < r + pp.r - 0.5){ ok = false; break; } }
+      if (!ok) continue;
+      if (!best || cy < best.cy || (Math.abs(cy - best.cy) < 0.5 && cx < best.cx)) best = {cx, cy};
+    }
+    return best; }
+  return {
+    getPipes: () => pipes, bestPos,
+    calcFit(diameter, maxCount){ const clone = gravSim(W, H, pipes), r = diameter/2; let count = 0;
+      while (count < maxCount){ const pos = clone.bestPos(r); if (!pos) break; clone.getPipes().push({cx:pos.cx, cy:pos.cy, r, diameter}); count++; } return count; },
+    commit(posId, diameter, maxCount){ const r = diameter/2; let placed = 0;
+      while (placed < maxCount){ const pos = bestPos(r); if (!pos) break; pipes.push({cx:pos.cx, cy:pos.cy, r, diameter, posId}); placed++; } return placed; }
+  };
+}
+// Раскладка набора труб в сечении. items: [{tid, n}], габариты пространства в см, предел массы в кг
+function pipeLayout(items, Wcm, Hcm, Lcm, maxKg){
+  const Wmm = Wcm*10, Hmm = Hcm*10, Lmm = Lcm*10; const sim = gravSim(Wmm, Hmm, []); let total = 0;
+  const placed = new Map(), rest = [], work = [];
+  for (const it of items){ const t = S.types.find(x => x.id === it.tid); if (!t || it.n < 1) continue;
+    if (t.len > Lmm + 1 || t.D > Wmm + 1 || t.D > Hmm + 1){ rest.push({tid:it.tid, n:it.n}); continue; }
+    work.push({t, rem:it.n, rows:Math.max(1, Math.floor((Lmm + 1) / t.len)), w:pipeKg(t)}); }
+  work.sort((a,b) => b.t.D - a.t.D);
+  let list = work, guard = 0;
+  while (guard++ < 200 && list.length){ let any = false; const left = [];
+    for (const it of list){
+      const maxByW = it.w > 0 ? Math.floor((maxKg - total) / it.w + 1e-9) : it.rem; const can = Math.min(it.rem, maxByW);
+      if (can < 1){ left.push(it); continue; }
+      const fitSec = sim.calcFit(it.t.D, Math.ceil(can / it.rows)); const fit = Math.min(fitSec * it.rows, can);
+      if (fit < 1){ left.push(it); continue; }
+      const secs = sim.commit(it.t.id, it.t.D, Math.ceil(fit / it.rows)); const act = Math.min(secs * it.rows, can);
+      if (act < 1){ left.push(it); continue; }
+      total += act * it.w; placed.set(it.t.id, (placed.get(it.t.id) || 0) + act); it.rem -= act; if (it.rem > 0) left.push(it); any = true;
+    }
+    list = left; if (!any) break; }
+  list.forEach(it => rest.push({tid:it.t.id, n:it.rem}));
+  let circles = sim.getPipes().map(p => ({tid:p.posId, cz:p.cx/10, cy:p.cy/10, r:p.r/10, cnt:0}));
+  for (const [tid, n0] of placed){ const t = S.types.find(x => x.id === tid); const rows = work.find(w => w.t.id === tid).rows; let n = n0;
+    for (const c of circles) if (c.tid === tid){ c.cnt = Math.min(rows, n); n -= c.cnt; } }
+  circles = circles.filter(c => c.cnt > 0);
+  let dx = 0, dy = 0, dz = 0;
+  for (const c of circles){ const t = S.types.find(x => x.id === c.tid); dx = Math.max(dx, t.len/10 * c.cnt); dy = Math.max(dy, c.cy + c.r); dz = Math.max(dz, c.cz + c.r); }
+  return {circles, placed:[...placed].map(([tid,n]) => ({tid, n})), rest, dx:Math.ceil(dx*10)/10, dy:Math.ceil(dy*10)/10, dz:Math.ceil(dz*10)/10, weight:total};
+}
+function blockType(u){
+  const parts = (u.items || []).map(i => ({t:S.types.find(t => t.id === i.tid), n:i.n})).filter(p => p.t);
+  return {id:'blk', kind:'block', name:'Трубы: ' + parts.map(p => 'Ø' + nf.format(p.t.D) + '×' + nf.format(p.t.t) + ' — ' + p.n + ' шт').join(', '),
+    pkg:'Трубы', weight:parts.reduce((s,p) => s + p.n * pipeKg(p.t), 0), stack:false, rotate:false, tilt:false, maxTiers:0, maxTop:0,
+    color:parts[0] ? parts[0].t.color : '#9aa6b0', L:u.dx, W:u.dz, H:u.dy, parts};
+}
+const placesOf = list => list.reduce((s,u) => s + (u.blk ? u.items.reduce((a,i) => a + i.n, 0) : 1), 0);
+function sumItems(blocks){ const m = new Map(); for (const b of blocks) for (const i of b.items) m.set(i.tid, (m.get(i.tid) || 0) + i.n); return [...m].map(([tid,n]) => ({tid, n})); }
+function newBlock(sp, res){ return {uid:uid(), blk:true, space:sp, x:0, y:0, z:0, dx:res.dx, dy:res.dy, dz:res.dz, items:res.placed, circles:res.circles}; }
+function dockPipes(counts, d){
+  counts = counts.filter(c => c.n > 0); if (!counts.length) return;
+  const B = bounds(d); const res = pipeLayout(counts, B.W, B.H, B.L, Infinity);
+  if (res.placed.length){ const b = newBlock('__limbo', res); S.units.push(b); const un = pack(d, [b], 'floor'); if (un.length) placeFree(un); }
+  if (res.rest.length){ const maxL = Math.max(...res.rest.map(r => S.types.find(t => t.id === r.tid).len/10));
+    const r2 = pipeLayout(res.rest, 1000, 1000, maxL, Infinity); if (r2.placed.length){ const b = newBlock('__limbo', r2); S.units.push(b); placeFree([b]); } }
+}
+function relayoutBlock(b){
+  const B = bounds(b.space) || {W:1000, H:1000, L:Math.max(...b.items.map(i => (S.types.find(t => t.id === i.tid)||{len:1000}).len/10))};
+  const res = pipeLayout(b.items, B.W, B.H, B.L, Infinity);
+  Object.assign(b, {items:res.placed, circles:res.circles, dx:res.dx, dy:res.dy, dz:res.dz});
+  return res.rest;
+}
+function removePipeType(tid){
+  let rest = [];
+  for (const b of S.units.filter(u => u.blk && u.items.some(i => i.tid === tid))){
+    b.items = b.items.filter(i => i.tid !== tid);
+    if (!b.items.length) S.units = S.units.filter(u => u !== b); else rest = rest.concat(relayoutBlock(b));
+  }
+  if (rest.length) dockPipes(rest, 'd1');
+}
+function syncPipes(t){ removePipeType(t.id); dockPipes([{tid:t.id, n:t.qty}], 'd1'); }
+function pipeCounts(tid){ const r = {}; for (const b of S.units) if (b.blk) for (const i of b.items) if (i.tid === tid) r[b.space] = (r[b.space] || 0) + i.n; return r; }
+
+// Расстановка одного транспорта: сначала трубы в седло у передней стенки, потом остальные места
+function packVehicle(v){
+  const sp = 'v:'+v.id;
+  const blocks = S.units.filter(u => u.blk && (u.space === sp || !u.space.startsWith('v:')));
+  const boxes = S.units.filter(u => !u.blk && (u.space === sp || !u.space.startsWith('v:')));
+  const counts = sumItems(blocks); S.units = S.units.filter(u => !blocks.includes(u));
+  boxes.forEach(u => u.space = '__limbo');
+  let rest = counts, pipesPlaced = 0;
+  if (counts.length){ const res = pipeLayout(counts, v.W, v.H, v.L, v.payload);
+    if (res.placed.length){ S.units.push(newBlock(sp, res)); pipesPlaced = res.placed.reduce((s,i) => s + i.n, 0); }
+    rest = res.rest; }
+  const un = boxes.length ? pack(sp, boxes, S.strategy) : [];
+  balance(v);
+  if (un.length) toDock(un, 'd1');
+  if (rest.length) dockPipes(rest, 'd1');
+  return {boxes:boxes.length - un.length, boxesLeft:un.length, pipes:pipesPlaced, pipesLeft:rest.reduce((s,i) => s + i.n, 0)};
+}
+
 /* ============================== history & persistence ============================== */
 function snap(){ return JSON.stringify({types:S.types, units:S.units, vehicles:S.vehicles, activeV:S.activeV}); }
 function pushHist(s){ hist.push(s || snap()); if (hist.length > 60) hist.shift(); }
@@ -631,18 +777,22 @@ function loadLocal(){ try { const s = localStorage.getItem('loadplan.v1'); if (s
 function demo(){
   S = blankState(); S.name = 'Трубы и отводы, Тайшет';
   const add = (o) => { const t = Object.assign({id:uid(), pkg:'Ящик', stack:true, rotate:true, tilt:false, maxTiers:0, maxTop:0, qty:1}, o); t.color = t.color || PALETTE[S.types.length % PALETTE.length]; S.types.push(t); syncUnits(t, true); return t; };
-  add({name:'Труба', pkg:'Труба / связка', L:1200, W:43, H:43, weight:1620, qty:9, tilt:true});
-  add({name:'Труба 57', pkg:'Труба / связка', L:600, W:6, H:6, weight:42, qty:1, tilt:true});
+  const addP = (o) => { const t = Object.assign({id:uid(), kind:'pipe', pkg:'Трубы', mat:'steel', qty:1}, o); t.color = t.color || PALETTE[S.types.length % PALETTE.length]; S.types.push(t); syncPipes(t); return t; };
+  addP({name:'Труба 426×8 ГОСТ 10704-91', D:426, t:8, len:12000, qty:9, color:'#C08FEA'});
+  addP({name:'Труба 219×6 ГОСТ 8732-78', D:219, t:6, len:12000, qty:12, color:'#EE93D8'});
+  addP({name:'Труба 57×4', D:57, t:4, len:6000, qty:30, color:'#8FE3E0'});
   add({name:'Отводы 1', L:140, W:110, H:95, weight:380, qty:1, color:'#8EE08A'});
   add({name:'Отводы 2', L:140, W:110, H:95, weight:360, qty:1, color:'#9FCCF5'});
   add({name:'Отводы 3', L:140, W:110, H:95, weight:340, qty:1, color:'#8FE3E0'});
   add({name:'Отводы 4', L:120, W:110, H:95, weight:300, qty:1, color:'#A7E0B0'});
-  const v = av(); const pipes = S.units.filter(u => typeOf(u).name.startsWith('Труба'));
-  pack('v:'+v.id, pipes, 'floor'); balance(v);
+  const v = av(); S.units.filter(u => !u.blk).forEach(u => { u.space = '__limbo'; }); toDock(S.units.filter(u => u.space === '__limbo'), 'd1');
+  packVehicle(v);
+  for (const u of S.units.filter(u => !u.blk && u.space === 'v:'+v.id)) { u.space = '__limbo'; } toDock(S.units.filter(u => u.space === '__limbo'), 'd1');
 }
 
 /* ============================== cargo types ============================== */
 function syncUnits(t, quiet){
+  if (isPipe(t)){ syncPipes(t); return; }
   const us = S.units.filter(u => u.tid === t.id);
   if (us.length < t.qty){
     const o = orients(t)[0]; const fresh = [];
@@ -758,6 +908,7 @@ function renderUnits(){
   S.units.forEach((u, i) => {
     if (u.space === '__limbo') return; if (u.space.startsWith('v:') && u.space !== sp) return;
     const t = typeOf(u); const o = origin(u.space);
+    if (u.blk){ renderBlock(u, t, o, i, labelsOn, issues); return; }
     const g = new THREE.BoxGeometry(M(u.dx), M(u.dy), M(u.dz));
     const mat = new THREE.MeshLambertMaterial({color:t.color, transparent:true, opacity:0.86, emissive:0x000000});
     const m = new THREE.Mesh(g, mat);
@@ -773,9 +924,27 @@ function renderUnits(){
   });
   applySel();
 }
+function renderBlock(u, t, o, i, labelsOn, issues){
+  const g = new THREE.BoxGeometry(M(u.dx), M(u.dy), M(u.dz));
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({color:css('--accent'), transparent:true, opacity:0, depthWrite:false, emissive:0x000000}));
+  m.position.set(M(o.x+u.x+u.dx/2), M(o.y+u.y+u.dy/2), M(o.z+u.z+u.dz/2));
+  const bad = issues.has(u.uid);
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({color: bad ? css('--danger') : css('--ink-3'), transparent:true, opacity:0.6}));
+  m.add(e); m.userData = {uid:u.uid, edges:e, bad, blk:true};
+  const geo = new Map(), mats = new Map();
+  for (const c of u.circles){ const pt = S.types.find(x => x.id === c.tid); if (!pt) continue;
+    const key = c.r + '|' + pt.len; if (!geo.has(key)){ const cg = new THREE.CylinderGeometry(M(c.r)-0.002, M(c.r)-0.002, M(pt.len/10), 22, 1, false); cg.rotateZ(Math.PI/2); geo.set(key, cg); }
+    if (!mats.has(c.tid)) mats.set(c.tid, new THREE.MeshLambertMaterial({color:pt.color}));
+    for (let k = 0; k < c.cnt; k++){ const cy = new THREE.Mesh(geo.get(key), mats.get(c.tid));
+      cy.position.set(M(k*pt.len/10 + pt.len/20 - u.dx/2), M(c.cy - u.dy/2), M(c.cz - u.dz/2)); cy.raycast = () => {}; m.add(cy); } }
+  if (labelsOn){ const s = textSprite((i+1) + '. ' + t.parts.map(p => 'Ø' + nf.format(p.t.D) + '×' + nf.format(p.t.t) + ' — ' + p.n).join(', '), {color:css('--ink'), size:0.24, depth:false, weight:600});
+    s.position.set(0, M(u.dy/2) + 0.25, 0); m.add(s); }
+  gUnits.add(m); meshes.set(u.uid, m);
+}
 function applySel(){
   const acc = new THREE.Color(css('--accent'));
   meshes.forEach((m, id) => { const on = id === selUid;
+    if (m.userData.blk){ m.material.opacity = on ? 0.14 : 0; m.userData.edges.material.color.set(on ? css('--ink') : (m.userData.bad ? css('--danger') : css('--ink-3'))); m.userData.edges.material.opacity = on ? 1 : 0.6; return; }
     m.material.emissive.set(on ? acc : 0x000000); m.material.emissiveIntensity = on ? 0.32 : 0; m.material.opacity = on ? 0.95 : 0.86;
     m.userData.edges.material.color.set(on ? css('--ink') : (m.userData.bad ? css('--danger') : new THREE.Color(typeOf(unitById(id)).color).multiplyScalar(0.55))); });
 }
@@ -866,7 +1035,7 @@ function dragMove(e){
   b.y = dropY(sp, b, u);
   const R = validate(sp, b, typeOf(u), u);
   const o = origin(sp); const m = meshes.get(u.uid);
-  if (m){ m.position.set(M(o.x+b.x+b.dx/2), M(o.y+b.y+b.dy/2), M(o.z+b.z+b.dz/2)); m.material.emissive.set(R.length ? css('--danger') : css('--accent')); m.material.emissiveIntensity = R.length ? 0.55 : 0.32; }
+  if (m){ m.position.set(M(o.x+b.x+b.dx/2), M(o.y+b.y+b.dy/2), M(o.z+b.z+b.dz/2)); m.material.emissive.set(R.length ? css('--danger') : css('--accent')); m.material.emissiveIntensity = R.length ? 0.55 : 0.32; if (m.userData.blk){ m.material.color.set(R.length ? css('--danger') : css('--accent')); m.material.opacity = 0.22; } }
   drag.target = {sp, b, R};
   if (R.length) showStatus(spaceName(sp) + ': ' + R[0], true);
   else if (B) showStatus(spaceName(sp) + '   спереди ' + fmtCm(b.x) + '   сзади ' + fmtCm(B.L-b.x-b.dx) + '   слева ' + fmtCm(b.z) + '   справа ' + fmtCm(B.W-b.z-b.dz) + '   от пола ' + fmtCm(b.y) + ' см');
@@ -921,7 +1090,7 @@ document.addEventListener('keydown', e => {
   if (e.target.closest && e.target.closest('input,textarea,select,dialog')) return;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); undo(); return; }
   const u = selUid && unitById(selUid); if (!u) return;
-  if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'd' || e.key.toLowerCase() === 'в')){ e.preventDefault(); openCargo(typeOf(u),'copy'); return; }
+  if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'd' || e.key.toLowerCase() === 'в')){ e.preventDefault(); if (u.blk) toast('Трубы копируются из списка слева'); else openCargo(typeOf(u),'copy'); return; }
   const k = e.key.toLowerCase(); const step = e.shiftKey ? 10 : 1;
   if (k === 'r' || k === 'к'){ reorient(u,'r'); }
   else if (k === 't' || k === 'е'){ reorient(u,'t'); }
@@ -947,7 +1116,7 @@ function openCtx(x, y, u){
   if (u){ const t = typeOf(u);
     h += '<div class="t">'+esc(t.name)+'</div>';
     h += '<button data-a="show">Показать в списке</button>';
-    h += '<button data-a="copy">Копировать место<span class="k">Ctrl+D</span></button>';
+    if (!u.blk) h += '<button data-a="copy">Копировать место<span class="k">Ctrl+D</span></button>';
     h += '<button data-a="rot"'+(t.rotate?'':' disabled')+'>Повернуть<span class="k">R</span></button>';
     h += '<button data-a="tilt"'+(t.tilt?'':' disabled')+'>Кантовать<span class="k">T</span></button>';
     h += '<div class="g">Переместить в</div>';
@@ -962,21 +1131,37 @@ function openCtx(x, y, u){
   ctx.innerHTML = h; ctx.style.display = 'block';
   const r = ctx.getBoundingClientRect(); ctx.style.left = Math.min(x, innerWidth - r.width - 8) + 'px'; ctx.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
   ctx.onclick = ev => { const b = ev.target.closest('button'); if (!b || b.disabled) return; hideCtx(); const a = b.dataset.a;
-    if (a === 'show') showInList(u.tid); else if (a === 'copy') openCargo(typeOf(u), 'copy'); else if (a === 'rot') reorient(u,'r'); else if (a === 'tilt') reorient(u,'t');
+    if (a === 'show') showInList(u.blk ? u.items[0].tid : u.tid); else if (a === 'copy') openCargo(typeOf(u), 'copy'); else if (a === 'rot') reorient(u,'r'); else if (a === 'tilt') reorient(u,'t');
     else if (a === 'mv') moveOne(u, b.dataset.sp); else if (a === 'pack') autoPack(); else if (a === 'all') moveAll(b.dataset.sp); };
 }
 
 /* ============================== actions ============================== */
+function packSummary(r){ const parts = [];
+  if (r.pipes || r.pipesLeft) parts.push('труб ' + r.pipes + (r.pipesLeft ? ' (не поместилось ' + r.pipesLeft + ')' : ''));
+  if (r.boxes || r.boxesLeft) parts.push('мест ' + r.boxes + (r.boxesLeft ? ' (не поместилось ' + r.boxesLeft + ')' : ''));
+  return parts.join(', '); }
 function autoPack(){
   const v = av(); const sp = 'v:'+v.id;
   const list = S.units.filter(u => u.space === sp || !u.space.startsWith('v:'));
   if (!list.length){ toast('Нет мест для расстановки. Создайте их или импортируйте пакинг'); return; }
   pushHist();
-  const un = pack(sp, list, S.strategy);
-  balance(v);
-  if (un.length) toDock(un, 'd1');
+  const r = packVehicle(v);
   refresh();
-  toast(un.length ? 'Погружено ' + (list.length-un.length) + ' из ' + list.length + '. Остальные в Док 1, можно добавить ещё транспорт' : 'Погружено всё: ' + list.length + ' мест');
+  toast('Погружено: ' + packSummary(r) + ((r.pipesLeft || r.boxesLeft) ? '. Остальное в Док 1. Чтобы рассчитать нужное число машин, нажмите «Распределить по машинам»' : ''));
+}
+function distribute(){
+  if (!S.units.some(u => !u.space.startsWith('v:')) && !S.units.some(u => u.space === 'v:'+av().id)){ toast('Нет мест для расстановки'); return; }
+  pushHist();
+  const base = av(); let r = packVehicle(base); const used = [base]; let guard = 0;
+  while ((r.pipesLeft || r.boxesLeft) && guard++ < 40){
+    const nv = JSON.parse(JSON.stringify(base)); nv.id = uid(); S.vehicles.push(nv);
+    const r2 = packVehicle(nv);
+    if (!r2.pipes && !r2.boxes){ S.vehicles = S.vehicles.filter(x => x !== nv); break; }
+    used.push(nv); r = r2;
+  }
+  S.activeV = base.id; refresh(true); setView(curView);
+  const left = S.units.filter(u => !u.space.startsWith('v:'));
+  toast('Нужно транспортов «' + base.name + '»: ' + used.length + (used.length > 1 ? ' (добавлены вкладки ТС)' : '') + (left.length ? '. Не помещается ни в один: ' + placesOf(left) + ' — проверьте длину и диаметр' : ''));
 }
 function select(id){ selUid = id; applySel(); renderSel(); renderList(); }
 function showInList(tid){ const el = document.querySelector('.ci[data-tid="'+tid+'"]'); if (el){ el.scrollIntoView({block:'nearest'}); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } }
@@ -985,6 +1170,7 @@ function showInList(tid){ const el = document.querySelector('.ci[data-tid="'+tid
 const ICON_BOX = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>';
 const ICON_EDIT = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>';
 const ICON_COPY = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>';
+const ICON_PIPE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="16" r="4"/><circle cx="17" cy="16" r="4"/><circle cx="12" cy="7.5" r="4"/></svg>';
 const ICON_DEL = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
 
 function renderList(){
@@ -992,27 +1178,31 @@ function renderList(){
   document.getElementById('cntTypes').textContent = S.types.length ? S.types.length + ' поз.' : '';
   if (!S.types.length){ el.innerHTML = '<div class="empty"><p>Пока нет ни одного места. Создайте его вручную или загрузите пакинг-лист из Excel.</p></div>'; }
   else {
-    const selT = selUid && unitById(selUid) ? unitById(selUid).tid : null;
+    const su = selUid && unitById(selUid); const selT = su ? (su.blk ? (su.items[0]||{}).tid : su.tid) : null;
     el.innerHTML = S.types.map((t,i) => {
-      const us = S.units.filter(u => u.tid === t.id); const inV = us.filter(u => u.space === sp).length; const inOther = us.filter(u => u.space.startsWith('v:') && u.space !== sp).length; const out = us.length - inV - inOther;
+      let inV, inOther, out;
+      if (isPipe(t)){ const pc = pipeCounts(t.id); inV = pc[sp] || 0; inOther = Object.entries(pc).filter(([k]) => k.startsWith('v:') && k !== sp).reduce((a,[,n]) => a + n, 0); out = Object.entries(pc).filter(([k]) => !k.startsWith('v:')).reduce((a,[,n]) => a + n, 0); }
+      else { const us = S.units.filter(u => u.tid === t.id); inV = us.filter(u => u.space === sp).length; inOther = us.filter(u => u.space.startsWith('v:') && u.space !== sp).length; out = us.length - inV - inOther; }
       const place = [inV ? 'В этом ТС: ' + inV : '', inOther ? 'в других ТС: ' + inOther : '', out ? '<span class="bad">не погружено: ' + out + '</span>' : ''].filter(Boolean).join(', ');
-      return '<div class="ci'+(t.id===selT?' sel':'')+'" data-tid="'+t.id+'"><span class="dot" style="background:'+t.color+'">'+ICON_BOX+'</span>'+
-        '<div><div class="ci-title"><b>'+(i+1)+'.</b> '+esc(t.name)+'</div>'+
-        '<div class="ci-sub">'+esc(t.pkg)+', '+fmtCm(t.L)+' × '+fmtCm(t.W)+' × '+fmtCm(t.H)+' см, '+fmtKg(t.weight)+', '+t.qty+' шт</div>'+
-        '<div class="ci-flags"><span>Ярусы: '+(t.stack ? (t.maxTiers ? 'до '+t.maxTiers : 'без огр.') : 'нельзя')+'</span><span>Поворот: '+(t.rotate?'да':'нет')+'</span><span>Кант.: '+(t.tilt?'да':'нет')+'</span>'+(t.maxTop?'<span>Сверху до '+fmtKg(t.maxTop)+'</span>':'')+'</div>'+
+      const desc = isPipe(t)
+        ? '<div class="ci-sub">Трубы, '+fmtPipe(t)+', '+esc(matOf(t.mat).name.toLowerCase())+', '+fmtKg(pipeKg(t))+'/шт, '+t.qty+' шт</div><div class="ci-flags"><span>1 м: '+nf.format(Math.round(pipeKgM(t)*10)/10)+' кг</span><span>Всего: '+fmtT(pipeKg(t)*t.qty)+'</span></div>'
+        : '<div class="ci-sub">'+esc(t.pkg)+', '+fmtCm(t.L)+' × '+fmtCm(t.W)+' × '+fmtCm(t.H)+' см, '+fmtKg(t.weight)+', '+t.qty+' шт</div>'+
+        '<div class="ci-flags"><span>Ярусы: '+(t.stack ? (t.maxTiers ? 'до '+t.maxTiers : 'без огр.') : 'нельзя')+'</span><span>Поворот: '+(t.rotate?'да':'нет')+'</span><span>Кант.: '+(t.tilt?'да':'нет')+'</span>'+(t.maxTop?'<span>Сверху до '+fmtKg(t.maxTop)+'</span>':'')+'</div>';
+      return '<div class="ci'+(t.id===selT?' sel':'')+'" data-tid="'+t.id+'"><span class="dot" style="background:'+t.color+'">'+(isPipe(t)?ICON_PIPE:ICON_BOX)+'</span>'+
+        '<div><div class="ci-title"><b>'+(i+1)+'.</b> '+esc(t.name)+'</div>'+desc+
         '<div class="ci-place">'+place+'</div></div>'+
         '<div class="ci-act"><button data-copy="'+t.id+'" title="Копировать" aria-label="Копировать">'+ICON_COPY+'</button><button data-edit="'+t.id+'" title="Изменить" aria-label="Изменить">'+ICON_EDIT+'</button><button data-del="'+t.id+'" title="Удалить" aria-label="Удалить">'+ICON_DEL+'</button></div></div>';
     }).join('');
   }
-  const N = S.units.length, W = S.units.reduce((s,u)=>s+typeOf(u).weight,0), V = S.units.reduce((s,u)=>s+u.dx*u.dy*u.dz,0)/1e6;
+  const N = placesOf(S.units), W = S.units.reduce((s,u)=>s+typeOf(u).weight,0), V = S.units.reduce((s,u)=>s+u.dx*u.dy*u.dz,0)/1e6;
   document.getElementById('totals').innerHTML = 'Мест <b>'+N+'</b> Вес <b>'+fmtKg(W)+'</b> Объём <b>'+nf2.format(V)+' м³</b>';
 }
 document.getElementById('clist').addEventListener('click', e => {
   const ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]'), cp = e.target.closest('[data-copy]'); const row = e.target.closest('.ci');
   if (cp){ openCargo(S.types.find(t => t.id === cp.dataset.copy), 'copy'); return; }
   if (ed){ openCargo(S.types.find(t => t.id === ed.dataset.edit)); return; }
-  if (dl){ const t = S.types.find(x => x.id === dl.dataset.del); if (!confirm('Удалить «'+t.name+'» ('+t.qty+' шт)?')) return; pushHist(); S.types = S.types.filter(x => x !== t); S.units = S.units.filter(u => u.tid !== t.id); if (selUid && !unitById(selUid)) selUid = null; refresh(); return; }
-  if (row){ const v = av(); const us = S.units.filter(u => u.tid === row.dataset.tid); const u = us.find(x => x.space === 'v:'+v.id) || us.find(x => !x.space.startsWith('v:')) || us[0];
+  if (dl){ const t = S.types.find(x => x.id === dl.dataset.del); if (!confirm('Удалить «'+t.name+'» ('+t.qty+' шт)?')) return; pushHist(); S.types = S.types.filter(x => x !== t); if (isPipe(t)) removePipeType(t.id); else S.units = S.units.filter(u => u.tid !== t.id); if (selUid && !unitById(selUid)) selUid = null; refresh(); return; }
+  if (row){ const v = av(); const us = S.units.filter(u => u.tid === row.dataset.tid || (u.blk && u.items.some(i => i.tid === row.dataset.tid))); const u = us.find(x => x.space === 'v:'+v.id) || us.find(x => !x.space.startsWith('v:')) || us[0];
     if (u){ if (u.space.startsWith('v:') && u.space !== 'v:'+v.id){ S.activeV = u.space.slice(2); refresh(true); } select(u.uid); } }
 });
 
@@ -1042,9 +1232,9 @@ function renderRight(){
   const unplaced = S.units.filter(u => !u.space.startsWith('v:'));
   document.getElementById('loadSec').innerHTML = '<h2>Загрузка</h2>'+
     bar('Вес груза', st.W, v.payload, fmtT)+ bar('Объём', st.vol/1e6, capV/1e6, x => nf2.format(x)+' м³')+
-    '<div class="grid2"><div><span>Мест в ТС</span>'+st.us.length+'</div><div><span>Погрузочные метры</span>'+nf2.format(st.ldm)+' м</div>'+
+    '<div class="grid2"><div><span>Мест в ТС</span>'+placesOf(st.us)+'</div><div><span>Погрузочные метры</span>'+nf2.format(st.ldm)+' м</div>'+
     '<div><span>Центр тяжести от передней стенки</span>'+(st.W?nf2.format(st.cx/100)+' м':'—')+'</div><div><span>Смещение ЦТ от оси кузова</span>'+(st.W?fmtCm(st.cz - v.W/2)+' см':'—')+'</div>'+
-    '<div><span>Высота ЦТ груза от пола</span>'+(st.W?fmtCm(st.cy)+' см':'—')+'</div><div><span>Не погружено</span>'+unplaced.length+(unplaced.length?' ('+fmtT(unplaced.reduce((s,u)=>s+typeOf(u).weight,0))+')':'')+'</div></div>';
+    '<div><span>Высота ЦТ груза от пола</span>'+(st.W?fmtCm(st.cy)+' см':'—')+'</div><div><span>Не погружено</span>'+placesOf(unplaced)+(unplaced.length?' ('+fmtT(unplaced.reduce((s,u)=>s+typeOf(u).weight,0))+')':'')+'</div></div>';
   let ax = '';
   if (st.ax){
     ax = '<h2>Нагрузка на оси <span class="sub">с учётом снаряжённой массы</span></h2>';
@@ -1074,7 +1264,7 @@ function renderRight(){
   const iss = S._issues; let nb = 0; const reasons = new Map();
   st.us.forEach(u => { const r = iss.get(u.uid); if (r){ nb++; r.forEach(x => reasons.set(x.replace(/«.*?»/,'').trim(), 1)); } });
   if (nb) W.push(['e', nb+' мест с нарушениями укладки: '+[...reasons.keys()].slice(0,3).join('; ')]);
-  const unp = unplaced.length; if (unp) W.push(['w', unp+' мест ещё не погружено']);
+  const unp = unplaced.length; if (unp) W.push(['w', placesOf(unplaced)+' мест ещё не погружено']);
   document.getElementById('warnSec').innerHTML = '<h2>Замечания</h2><ul class="warns">'+(W.length ? W.map(w => '<li class="'+(w[0]==='w'?'w':'')+'">'+esc(w[1])+'</li>').join('') : '<li class="ok">Нарушений нет</li>')+'</ul>';
 }
 document.getElementById('vehSec').addEventListener('click', e => { if (e.target.id === 'vehEdit') openVehicle(av()); });
@@ -1085,11 +1275,30 @@ document.getElementById('vehSec').addEventListener('change', e => {
   if (bad) toast(bad + ' мест не помещаются в новый кузов. Нажмите «Расставить автоматически»');
 });
 
+function blockSvg(u){
+  const B = vehOf(u.space) ? bounds(u.space) : {W:Math.max(u.dz, 1), H:Math.max(u.dy, 1)};
+  const w = 250, sc = w / B.W, h = Math.max(30, Math.min(150, B.H * sc));
+  const sch = Math.min(sc, h / B.H);
+  const circ = u.circles.map(c => { const t = S.types.find(x => x.id === c.tid); if (!t) return '';
+    const cx = (u.z + c.cz) * sch, cy = h - (u.y + c.cy) * sch, r = Math.max(c.r * sch - 0.3, 0.6);
+    return '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+r.toFixed(1)+'" fill="'+t.color+'" fill-opacity=".85" stroke="'+t.color+'"/>'+
+      (r > 9 ? '<text x="'+cx.toFixed(1)+'" y="'+(cy+3).toFixed(1)+'" text-anchor="middle" font-size="'+Math.min(r*0.7, 10).toFixed(1)+'" fill="#1d252c">'+nf.format(t.D)+'</text>' : ''); }).join('');
+  return '<div style="margin-top:8px"><div class="muted" style="font-size:12px;margin-bottom:4px">Сечение со стороны дверей'+(vehOf(u.space) ? ', '+fmtCm(B.W)+' × '+fmtCm(B.H)+' см' : '')+'</div>'+
+    '<svg width="'+(B.W*sch).toFixed(0)+'" height="'+h.toFixed(0)+'" viewBox="0 0 '+(B.W*sch).toFixed(1)+' '+h.toFixed(1)+'" role="img" aria-label="Сечение штабеля труб" style="display:block;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;max-width:100%">'+circ+'</svg></div>';
+}
 function renderSel(){
   const el = document.getElementById('selcard'); const u = selUid && unitById(selUid);
   if (!u){ el.style.display = 'none'; return; }
   const t = typeOf(u); const R = (S._issues && S._issues.get(u.uid)) || []; const n = S.units.indexOf(u)+1;
   el.style.display = 'block';
+  if (u.blk){ const B = bounds(u.space);
+    el.innerHTML = '<h3><span class="dot" style="width:14px;height:14px;background:'+t.color+'"></span>'+n+'. Трубы, '+placesOf([u])+' шт</h3>'+
+      '<div class="meta">'+fmtT(t.weight)+', '+spaceName(u.space)+', укладка в седло</div>'+
+      '<dl class="kv">'+t.parts.map(p => '<dt>'+esc(fmtPipe(p.t))+'</dt><dd>'+p.n+' шт</dd>').join('')+'<dt>Штабель (Д × В × Ш)</dt><dd>'+fmtCm(u.dx)+' × '+fmtCm(u.dy)+' × '+fmtCm(u.dz)+'</dd>'+
+      (B ? '<dt>Спереди / сзади</dt><dd>'+fmtCm(u.x)+' / '+fmtCm(B.L-u.x-u.dx)+' см</dd><dt>До потолка</dt><dd>'+fmtCm(B.H-u.y-u.dy)+' см</dd>' : '')+'</dl>'+
+      blockSvg(u)+(R.length ? '<div class="reasons">'+R.map(esc).join('<br>')+'</div>' : '')+
+      '<div class="row">'+(u.space.startsWith('v:') ? '<button class="btn sm" data-s="d1">В Док 1</button>' : '<button class="btn sm" data-s="veh">В ТС</button>')+'</div><button class="x" data-s="x" aria-label="Снять выделение">✕</button>';
+    return; }
   el.innerHTML = '<h3><span class="dot" style="width:14px;height:14px;background:'+t.color+'"></span>'+n+'. '+esc(t.name)+'</h3>'+
     '<div class="meta">'+esc(t.pkg)+', '+fmtKg(t.weight)+', '+spaceName(u.space)+(u.y>EPS?', ярус '+tierOf(u):'')+'</div>'+
     '<dl class="kv"><dt>Габариты (Д × В × Ш)</dt><dd>'+fmtCm(u.dx)+' × '+fmtCm(u.dy)+' × '+fmtCm(u.dz)+'</dd>'+
@@ -1124,13 +1333,14 @@ document.getElementById('cf_preset').addEventListener('change', e => { const p =
 const cf = id => document.getElementById('cf_'+id);
 function nextName(name){
   const has = n => S.types.some(t => t.name === n);
-  const m = name.match(/^(.*?)(\d+)\s*$/);
+  const m = name.match(/^(.*\s)(\d+)\s*$/);
   if (m){ let n = +m[2] + 1; while (has(m[1] + n)) n++; return m[1] + n; }
   let n = 2; while (has(name + ' ' + n)) n++; return name + ' ' + n;
 }
 function freeColor(){ const used = new Set(S.types.map(t => t.color.toLowerCase())); return PALETTE.find(c => !used.has(c.toLowerCase())) || PALETTE[S.types.length % PALETTE.length]; }
 let cargoMode = 'new', copySource = null;
 function openCargo(t, mode){
+  if (isPipe(t)) return openPipe(t, mode);
   cargoMode = mode || (t ? 'edit' : 'new'); editingType = cargoMode === 'edit' ? t : null; copySource = cargoMode === 'copy' ? t : null;
   document.getElementById('cargoDlgTitle').textContent = {edit:'Изменить грузовое место', copy:'Копия грузового места', new:'Новое грузовое место'}[cargoMode];
   let d = t || {name:'', pkg:'Ящик', L:'', W:'', H:'', weight:'', qty:1, stack:true, rotate:true, tilt:false, maxTiers:0, maxTop:0, color:freeColor()};
@@ -1169,6 +1379,48 @@ document.getElementById('cargoForm').addEventListener('submit', e => {
 });
 let savedType = null;
 document.getElementById('addCargoBtn').onclick = () => openCargo(null);
+
+/* ============================== pipe dialog ============================== */
+const pipeDlg = document.getElementById('pipeDlg'); const pf = id => document.getElementById('pf_'+id);
+pf('mat').innerHTML = MATERIALS.map(m => '<option value="'+m.id+'">'+m.name+' ('+nf.format(m.rho)+' кг/м³)</option>').join('');
+let pipeMode = 'new', editingPipe = null, pipeSrc = null, savedPipe = null, dtAuto = true;
+function readPipe(){ return {D:+pf('D').value, t:+pf('t').value, len:+pf('len').value, qty:Math.round(+pf('qty').value), mat:pf('mat').value}; }
+function pipeCalc(){ const p = readPipe(); const el = pf('calc');
+  if (!(p.D > 0 && p.t > 0 && p.t < p.D/2 && p.len > 0)){ el.textContent = 'Укажите диаметр, стенку и длину, чтобы рассчитать массу.'; return; }
+  const kgm = pipeKgM(p), kg = pipeKg(p), q = p.qty > 0 ? p.qty : 0;
+  el.innerHTML = '<div>Масса 1 м: <b>'+nf.format(Math.round(kgm*100)/100)+' кг</b>. Одна труба: <b>'+fmtKg(kg)+'</b>. Всего '+q+' шт: <b>'+fmtT(kg*q)+'</b>, '+nf.format(Math.round(p.len/1000*q*10)/10)+' м.<br>Расчёт: π × t × (D − t) × ρ.</div>'; }
+['D','t','len','qty','mat'].forEach(k => pf(k).addEventListener('input', () => { if (k === 'D' || k === 't') dtAuto = false; pipeCalc(); }));
+pf('name').addEventListener('input', () => { const dt = parseDT(pf('name').value); if (dt && (dtAuto || !pf('D').value)){ pf('D').value = dt.d; pf('t').value = dt.t; dtAuto = true; } pipeCalc(); });
+function openPipe(t, mode){
+  pipeMode = mode || (t ? 'edit' : 'new'); editingPipe = pipeMode === 'edit' ? t : null; pipeSrc = pipeMode === 'copy' ? t : null;
+  pf('err').textContent = '';
+  document.getElementById('pipeDlgTitle').textContent = {edit:'Изменить трубы', copy:'Копия позиции труб', new:'Новая позиция труб'}[pipeMode];
+  let d = t || {name:'', D:'', t:'', len:12000, qty:1, mat:'steel', color:freeColor()};
+  if (pipeMode === 'copy') d = Object.assign({}, t, {name:nextName(t.name), color:freeColor()});
+  pf('hint').style.display = pipeMode === 'copy' ? '' : 'none';
+  pf('hint').textContent = pipeMode === 'copy' ? 'Параметры скопированы из «'+t.name+'». Измените размер, длину или количество и сохраните.' : '';
+  pf('name').value = d.name; pf('D').value = d.D; pf('t').value = d.t; pf('len').value = d.len; pf('qty').value = d.qty; pf('mat').value = d.mat; pf('color').value = d.color;
+  dtAuto = !t; pipeCalc(); pipeDlg.showModal();
+  if (pipeMode === 'copy'){ pf('D').focus(); pf('D').select(); } else pf('name').focus();
+}
+document.getElementById('pipeForm').addEventListener('submit', e => {
+  const sv = e.submitter && e.submitter.value; if (sv === 'cancel') return;
+  const p = readPipe(); let name = pf('name').value.trim();
+  if (!name && p.D > 0 && p.t > 0) name = 'Труба ' + nf.format(p.D) + '×' + nf.format(p.t);
+  let err = '';
+  if (!(p.D > 0)) err = 'Укажите наружный диаметр'; else if (!(p.t > 0)) err = 'Укажите толщину стенки'; else if (p.t >= p.D/2) err = 'Стенка должна быть меньше половины диаметра';
+  else if (!(p.len >= 100)) err = 'Укажите длину трубы в миллиметрах'; else if (!(p.qty >= 1 && p.qty <= 9999)) err = 'Количество от 1 до 9999';
+  if (err){ e.preventDefault(); pf('err').textContent = err; return; }
+  pushHist();
+  const data = Object.assign({name, kind:'pipe', pkg:'Трубы', color:pf('color').value}, p);
+  if (editingPipe){ Object.assign(editingPipe, data); syncPipes(editingPipe); savedPipe = editingPipe; toast('Изменено. Трубы «'+name+'» перенесены в Док 1, нажмите «Расставить автоматически»'); }
+  else { const t = Object.assign({id:uid()}, data); const at = pipeSrc ? S.types.indexOf(pipeSrc) : -1;
+    if (at >= 0) S.types.splice(at + 1, 0, t); else S.types.push(t);
+    syncPipes(t); savedPipe = t; toast('Добавлено в Док 1: '+p.qty+' труб '+fmtPipe(t)+', '+fmtT(pipeKg(t)*p.qty)); }
+  refresh();
+  if (sv === 'again'){ const src = savedPipe; setTimeout(() => openPipe(src, 'copy'), 0); }
+});
+document.getElementById('addPipeBtn').onclick = () => openPipe(null);
 
 /* ============================== vehicle dialog ============================== */
 const vehDlg = document.getElementById('vehDlg'); let editingVeh = null; let vDraft = null;
@@ -1220,9 +1472,10 @@ document.getElementById('vehForm').addEventListener('submit', e => {
 /* ============================== import ============================== */
 const importDlg = document.getElementById('importDlg');
 let impMode = null, impRows = null, impHdr = null, impMapping = null, impText = null;
-const impOpt = {unit:'auto', wmode:'piece', stack:true, rot:true, tilt:false, pack:true};
+const impOpt = {unit:'auto', wmode:'piece', stack:true, rot:true, tilt:false, pack:true, mat:'steel'};
+let impRaw = null;
 const FIELDS = [
-  ['name','Наименование',true],['pkg','Тип упаковки'],['dims','Габариты одной строкой'],['L','Длина'],['W','Ширина'],['H','Высота'],['weight','Вес',true],['qty','Количество'],['stack','Штабелирование'],['rotate','Поворот'],['tilt','Кантование']
+  ['name','Наименование',true],['pkg','Тип упаковки'],['dims','Габариты одной строкой'],['D','Диаметр трубы, мм'],['T','Стенка трубы, мм'],['L','Длина'],['W','Ширина'],['H','Высота'],['weight','Вес',true],['qty','Количество'],['stack','Штабелирование'],['rotate','Поворот'],['tilt','Кантование']
 ];
 const ALIAS = {
   name:{inc:['наимен','назван','описан','товар','груз','name','descr','item','product','позиц','артик','маркир']},
@@ -1234,6 +1487,8 @@ const ALIAS = {
   weight:{inc:['брутто','gross','вес','масса','weight','кг','kg'],neg:['нетто','net']},
   qty:{inc:['кол','qty','quantity','шт','мест','pcs','piece','units','ед']},
   stack:{inc:['штабел','ярус','stack']},
+  D:{eq:['dn','ду','d'],inc:['диам','diameter','∅','наруж']},
+  T:{eq:['s','t'],inc:['стенк','толщ','thickness','wall']},
   rotate:{inc:['поворот','rotat']},
   tilt:{inc:['кант','tilt','на бок']}
 };
@@ -1246,7 +1501,7 @@ function scoreHeader(h, f){ const n = norm(h); const a = ALIAS[f]; if (!n) retur
   if (a.inc.some(x => n.includes(x))) return f === 'weight' && n.includes('брутто') ? 4 : 2; return 0; }
 function autoMap(hdr){
   const m = {}; const used = new Set();
-  const order = ['dims','L','W','H','weight','qty','stack','rotate','tilt','pkg','name'];
+  const order = ['dims','D','T','L','W','H','weight','qty','stack','rotate','tilt','pkg','name'];
   for (const f of order){ let best = -1, bs = 0; hdr.forEach((h,i) => { if (used.has(i)) return; const s = scoreHeader(h,f); if (s > bs){ bs = s; best = i; } }); if (best >= 0){ m[f] = best; used.add(best); } }
   if (m.dims !== undefined && (m.L !== undefined && m.W !== undefined && m.H !== undefined)) delete m.dims;
   return m;
@@ -1288,6 +1543,9 @@ function rawRows(){
     const c = f.slice(); const nm = [];
     while (c.length && isNaN(strictNum(c[0]))) nm.push(c.shift());   // название с запятыми внутри
     const name = nm.filter(Boolean).join(', ');
+    const dt = parseDT(name);
+    if (dt && c.length <= 2 && !c.some(x => isNaN(strictNum(x)))){ let len = c.length ? strictNum(c[0]) : 12000; if (len > 0 && len < 100) len *= 1000;
+      return {n, pipe:true, name, D:dt.d, t:dt.t, len, qtyRaw:c.length > 1 ? strictNum(c[1]) : 1, mat:'', err:''}; }
     const [L,W,H,w,q] = c.map(strictNum);
     let err = '';
     if (c.length < 4) err = 'нужно минимум: длина, ширина, высота, масса';
@@ -1295,8 +1553,17 @@ function rawRows(){
     else if (c.length > 5) err = 'лишние числа: если дроби через запятую, разделяйте столбцы «;» или Tab';
     return {n, name, pkgRaw:'', L, W, H, w, qtyRaw:q, stack:'', rotate:'', tilt:'', err};
   });
+  if (impMode === 'raw') return impRaw;
   const m = impMapping; const get = (r,f) => m[f] !== undefined && m[f] !== '' ? r[m[f]] : '';
+  const lenHdr = m.L !== undefined && m.L !== '' ? norm(impHdr[m.L]) : '';
   return impRows.map(({r,n}) => {
+    { const nm = String(get(r,'name')||'').trim(); let D = num(get(r,'D')), T = num(get(r,'T')); const dt = parseDT(nm);
+      if (!(D > 0) && dt){ D = dt.d; if (!(T > 0)) T = dt.t; }
+      const hasBox = num(get(r,'W')) > 0 || num(get(r,'H')) > 0 || (m.dims !== undefined && m.dims !== '' && String(get(r,'dims')).trim());
+      if (D > 0 && !hasBox){ let len = num(get(r,'L'));
+        if (len > 0){ if (/(^|\s)мм|mm/.test(lenHdr)) {} else if (/(^|\s)см|cm/.test(lenHdr)) len *= 10; else if (/(^|\s)м(\s|$)|\bm\b/.test(lenHdr) || len < 100) len *= 1000; }
+        else len = 12000;
+        return {n, pipe:true, name:nm, D, t:T, len, qtyRaw:num(get(r,'qty')), mat:'', err:''}; } }
     let L = num(get(r,'L')), W = num(get(r,'W')), H = num(get(r,'H'));
     if (m.dims !== undefined && m.dims !== ''){ const d = String(get(r,'dims')).replace(/,/g,'.').match(/(\d+(?:\.\d+)?)\s*[x×х*\/]\s*(\d+(?:\.\d+)?)\s*[x×х*\/]\s*(\d+(?:\.\d+)?)/i); if (d){ L = +d[1]; W = +d[2]; H = +d[3]; } }
     return {n, name:String(get(r,'name')||'').trim(), pkgRaw:String(get(r,'pkg')||'').trim(), L, W, H, w:num(get(r,'weight')), qtyRaw:num(get(r,'qty')), stack:get(r,'stack'), rotate:get(r,'rotate'), tilt:get(r,'tilt'), err:''};
@@ -1304,8 +1571,12 @@ function rawRows(){
 }
 function parseRows(){
   const raw = rawRows();
-  const k = impOpt.unit === 'auto' ? detectK(raw.filter(x => !x.err)) : {mm:0.1, cm:1, m:100}[impOpt.unit];
+  const k = impOpt.unit === 'auto' ? detectK(raw.filter(x => !x.err && !x.pipe)) : {mm:0.1, cm:1, m:100}[impOpt.unit];
   let items = raw.map(x => {
+    if (x.pipe){ const qty = x.qtyRaw > 0 ? Math.round(x.qtyRaw) : 1; const name = x.name || ('Труба ' + nf.format(x.D) + '×' + nf.format(x.t));
+      const it = {kind:'pipe', pipe:true, name, pkg:'Трубы', D:x.D, t:x.t, len:Math.round(x.len), qty, mat:x.mat || impOpt.mat, lines:[x.n], err:x.err};
+      if (!it.err){ if (!(it.D > 0)) it.err = 'нет диаметра'; else if (!(it.t > 0)) it.err = 'нет стенки'; else if (it.t >= it.D/2) it.err = 'стенка больше радиуса'; else if (!(it.len >= 100)) it.err = 'нет длины'; }
+      it.weight = it.err ? 0 : Math.round(pipeKg(it)*10)/10; return it; }
     const qty = x.qtyRaw > 0 ? Math.round(x.qtyRaw) : 1; let w = x.w; if (impOpt.wmode === 'row' && w > 0) w = w/qty;
     let stack = bool(x.stack, impOpt.stack), maxTiers = 0; const sn = num(x.stack); if (!isNaN(sn) && /^\s*\d+\s*$/.test(String(x.stack))){ if (sn <= 1) stack = false; else { stack = true; maxTiers = Math.round(sn); } }
     const name = x.name || 'Место, строка ' + x.n;
@@ -1315,11 +1586,11 @@ function parseRows(){
   if (document.getElementById('impMerge').checked){
     const map = new Map(); const out = [];
     for (const it of items){ if (it.err){ out.push(it); continue; }
-      const key = [it.name.toLowerCase(), it.pkg, it.L, it.W, it.H, it.weight, it.stack, it.maxTiers, it.rotate, it.tilt].join('|');
+      const key = it.pipe ? ['pipe', it.name.toLowerCase(), it.D, it.t, it.len, it.mat].join('|') : [it.name.toLowerCase(), it.pkg, it.L, it.W, it.H, it.weight, it.stack, it.maxTiers, it.rotate, it.tilt].join('|');
       const ex = map.get(key); if (ex){ ex.qty += it.qty; ex.lines.push(...it.lines); } else { map.set(key, it); out.push(it); } }
     items = out;
   }
-  items.forEach(it => { if (!it.err && it.qty > 999) it.err = 'больше 999 мест в одной позиции'; it.ok = !it.err; });
+  items.forEach(it => { if (!it.err && it.qty > (it.pipe ? 9999 : 999)) it.err = 'слишком большое количество в одной позиции'; it.ok = !it.err; });
   items._k = k; return items;
 }
 function drawMap(){
@@ -1332,13 +1603,14 @@ function drawMap(){
   } else h += '<div class="fs" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-weight:600">Параметры распознавания</div>';
   h += '<div class="map"><div class="f"><label for="impUnit">Единицы размеров</label>'+sel('impUnit',[['auto','Определить автоматически'],['mm','миллиметры'],['cm','сантиметры'],['m','метры']],impOpt.unit)+'</div>'+
     '<div class="f"><label for="impW">Масса в строке указана</label>'+sel('impW',[['piece','за одно место'],['row','за всю строку']],impOpt.wmode)+'</div>'+
+    '<div class="f"><label for="impMat">Материал труб</label>'+sel('impMat',MATERIALS.map(m => [m.id, m.name]),impOpt.mat)+'</div>'+
     '<div class="f"><span class="lab">'+(impMode==='cols'?'Если в файле не указано':'Правила для всех мест')+'</span><label class="chk"><input type="checkbox" id="impStack"'+(impOpt.stack?' checked':'')+'> штабелировать</label><label class="chk"><input type="checkbox" id="impRot"'+(impOpt.rot?' checked':'')+'> поворачивать</label><label class="chk"><input type="checkbox" id="impTilt"'+(impOpt.tilt?' checked':'')+'> кантовать</label></div>'+
     '<div class="f"><span class="lab">После импорта</span><label class="chk"><input type="checkbox" id="impPack"'+(impOpt.pack?' checked':'')+'> сразу расставить в текущий транспорт</label></div></div>'+
     '<div id="impPrev"></div>';
   const box = document.getElementById('impMap'); box.innerHTML = h;
   box.querySelectorAll('select,input').forEach(el => el.addEventListener('change', () => {
     if (el.dataset.f) impMapping[el.dataset.f] = el.value === '' ? '' : +el.value;
-    impOpt.unit = document.getElementById('impUnit').value; impOpt.wmode = document.getElementById('impW').value;
+    impOpt.unit = document.getElementById('impUnit').value; impOpt.wmode = document.getElementById('impW').value; impOpt.mat = document.getElementById('impMat').value;
     impOpt.stack = document.getElementById('impStack').checked; impOpt.rot = document.getElementById('impRot').checked; impOpt.tilt = document.getElementById('impTilt').checked; impOpt.pack = document.getElementById('impPack').checked;
     drawPrev(); }));
   drawPrev();
@@ -1348,10 +1620,11 @@ function drawPrev(){
   const P = parseRows(); const ok = P.filter(x => x.ok); const unitTxt = {0.1:'мм', 1:'см', 100:'м'}[P._k];
   const places = ok.reduce((s,x)=>s+x.qty,0), wt = ok.reduce((s,x)=>s+x.qty*x.weight,0), bad = P.length - ok.length;
   const merged = document.getElementById('impMerge').checked ? ok.filter(x => x.lines.length > 1).length : 0;
-  box.innerHTML = '<p class="muted" style="margin:12px 0 0">Позиций: '+ok.length+', мест: '+places+', масса '+fmtT(wt)+'. Размеры прочитаны в '+unitTxt+(impOpt.unit==='auto'?' (определено автоматически, можно сменить выше)':'')+'.'+
+  const hasBox = P.some(x => !x.pipe), pipesN = ok.filter(x => x.pipe).reduce((s,x) => s + x.qty, 0);
+  box.innerHTML = '<p class="muted" style="margin:12px 0 0">Позиций: '+ok.length+', мест: '+places+(pipesN ? ' (из них труб '+pipesN+')' : '')+', масса '+fmtT(wt)+'.'+(hasBox ? ' Размеры мест прочитаны в '+unitTxt+(impOpt.unit==='auto'?' (определено автоматически, можно сменить выше)':'')+'.' : '')+
       (merged ? ' Объединено одинаковых позиций: '+merged+'.' : '')+(bad ? ' <span style="color:var(--danger)">Строк с ошибками: '+bad+', они не будут добавлены.</span>' : '')+'</p>'+
-    '<div class="tablewrap"><table class="t"><thead><tr><th>Строка</th><th>Наименование</th><th>Упаковка</th><th>Д × Ш × В, см</th><th>Масса места, кг</th><th>Кол-во</th><th>Ярусы</th><th>Поворот</th><th>Кант.</th><th>Замечание</th></tr></thead><tbody>'+
-    P.slice(0,100).map(x => '<tr class="'+(x.ok?'':'bad')+'"><td class="num">'+x.lines.join(', ')+'</td><td>'+esc(x.name)+'</td><td>'+esc(x.pkg)+'</td><td class="num">'+(x.L>0?fmtCm(x.L)+' × '+fmtCm(x.W)+' × '+fmtCm(x.H):'—')+'</td><td class="num">'+(x.weight>0?nf.format(x.weight):'—')+'</td><td class="num">'+x.qty+'</td><td>'+(x.stack?(x.maxTiers?'до '+x.maxTiers:'без огр.'):'нельзя')+'</td><td>'+(x.rotate?'да':'нет')+'</td><td>'+(x.tilt?'да':'нет')+'</td><td>'+esc(x.err||'')+'</td></tr>').join('')+
+    '<div class="tablewrap"><table class="t"><thead><tr><th>Строка</th><th>Наименование</th><th>Упаковка</th><th>Размеры (Д × Ш × В, см)</th><th>Масса места, кг</th><th>Кол-во</th><th>Ярусы</th><th>Поворот</th><th>Кант.</th><th>Замечание</th></tr></thead><tbody>'+
+    P.slice(0,100).map(x => x.pipe ? '<tr class="'+(x.ok?'':'bad')+'"><td class="num">'+x.lines.join(', ')+'</td><td>'+esc(x.name)+'</td><td>Трубы, '+esc(matOf(x.mat).name.toLowerCase())+'</td><td class="num">'+(x.D>0?fmtPipe(x):'—')+'</td><td class="num">'+(x.weight>0?nf.format(x.weight):'—')+'</td><td class="num">'+x.qty+'</td><td>в седло</td><td>—</td><td>—</td><td>'+esc(x.err||'')+'</td></tr>' : '<tr class="'+(x.ok?'':'bad')+'"><td class="num">'+x.lines.join(', ')+'</td><td>'+esc(x.name)+'</td><td>'+esc(x.pkg)+'</td><td class="num">'+(x.L>0?fmtCm(x.L)+' × '+fmtCm(x.W)+' × '+fmtCm(x.H):'—')+'</td><td class="num">'+(x.weight>0?nf.format(x.weight):'—')+'</td><td class="num">'+x.qty+'</td><td>'+(x.stack?(x.maxTiers?'до '+x.maxTiers:'без огр.'):'нельзя')+'</td><td>'+(x.rotate?'да':'нет')+'</td><td>'+(x.tilt?'да':'нет')+'</td><td>'+esc(x.err||'')+'</td></tr>').join('')+
     '</tbody></table></div>'+(P.length>100?'<p class="muted">Показаны первые 100 позиций</p>':'');
   const go = document.getElementById('impGo'); go.disabled = !ok.length; go.textContent = ok.length ? 'Добавить '+places+' мест' : 'Добавить места';
 }
@@ -1373,8 +1646,24 @@ document.getElementById('importBtn').onclick = () => {
   importDlg.showModal(); setTab(t);
 };
 importDlg.addEventListener('click', e => { if (e.target.closest('[data-close]')) importDlg.close(); });
+function readJson1C(f){
+  const rd = new FileReader();
+  rd.onload = () => { try { const data = JSON.parse(rd.result); if (!Array.isArray(data.positions)) throw new Error('В файле нет списка positions');
+      const mat = MATERIALS.some(m => m.id === data.material) ? data.material : '';
+      impRaw = data.positions.map((p, i) => { let D = 0, T = 0; const dt = parseDT(p.name);
+        if (dt){ D = dt.d; T = dt.t; }
+        if (!D && p.diameter) D = parseFloat(String(p.diameter).replace(',','.')); if (!T && p.thickness) T = parseFloat(String(p.thickness).replace(',','.'));
+        let len = +p.length || 0, cnt = +p.count || 0;
+        if (!len && p.totalMeters) len = 12000; if (len > 0 && len < 100) len *= 1000; if (!len) len = 12000;
+        if (!cnt && p.totalMeters) cnt = Math.ceil(p.totalMeters / (len/1000));
+        return {n:i+1, pipe:true, name:String(p.name||''), D, t:T, len, qtyRaw:cnt, mat:p.material && MATERIALS.some(m => m.id === p.material) ? p.material : mat, err:''}; });
+      impMode = 'raw'; impError(''); drawMap();
+      if (data.requestId || data.client) toast('Заявка ' + (data.requestId || '') + (data.client ? ', ' + data.client : ''));
+    } catch(err){ impError('Ошибка JSON: ' + err.message); } };
+  rd.readAsText(f);
+}
 function readFile(f){
-  if (!f) return; const rd = new FileReader();
+  if (!f) return; if (/\.json$/i.test(f.name)){ readJson1C(f); return; } const rd = new FileReader();
   rd.onload = () => { try {
     if (typeof XLSX === 'undefined') throw new Error('nolib');
     const wb = XLSX.read(new Uint8Array(rd.result), {type:'array'}); const ws = wb.Sheets[wb.SheetNames[0]];
@@ -1391,11 +1680,11 @@ document.getElementById('impParse').onclick = () => parseText(document.getElemen
 document.getElementById('impPaste').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); parseText(e.target.value); } });
 document.getElementById('impGo').onclick = () => {
   const ok = parseRows().filter(x => x.ok); if (!ok.length) return; pushHist();
-  ok.forEach(x => { const t = Object.assign({id:uid(), color:freeColor()}, x); delete t.ok; delete t.err; delete t.lines; S.types.push(t); syncUnits(t); });
+  ok.forEach(x => { const t = Object.assign({id:uid(), color:freeColor()}, x); delete t.ok; delete t.err; delete t.lines; delete t.pipe; if (t.kind === 'pipe') delete t.weight; S.types.push(t); syncUnits(t); });
   importDlg.close();
   const places = ok.reduce((s,x)=>s+x.qty,0);
-  if (impOpt.pack){ const v = av(); const list = S.units.filter(u => !u.space.startsWith('v:') || u.space === 'v:'+v.id); const un = pack('v:'+v.id, list, S.strategy); balance(v); if (un.length) toDock(un,'d1');
-    toast('Добавлено позиций: '+ok.length+', мест: '+places+'. '+(un.length ? 'Не поместилось мест: '+un.length+', они в Док 1' : 'Всё погружено')); }
+  if (impOpt.pack){ const r = packVehicle(av());
+    toast('Добавлено позиций: '+ok.length+', мест: '+places+'. Погружено: '+packSummary(r)+((r.pipesLeft||r.boxesLeft) ? '. Остальное в Док 1, попробуйте «Распределить по машинам»' : '')); }
   else toast('Добавлено позиций: '+ok.length+', мест: '+places+'. Места в Док 1');
   refresh();
 };
@@ -1457,7 +1746,10 @@ function saveFile(name, data){
 document.getElementById('exJson').onclick = () => saveFile((S.name||'план').replace(/[\\/:*?"<>|]/g,'_') + '.json', JSON.stringify(planData(), null, 1));
 document.getElementById('exCsv').onclick = () => {
   const rows = [['№','Наименование','Упаковка','Размещение','X от передней стенки, см','Z от левой стенки, см','Y от пола, см','Длина по X, см','Высота, см','Ширина по Z, см','Ярус','Вес, кг']];
-  S.units.forEach((u,i) => { const t = typeOf(u); rows.push([i+1, t.name, t.pkg, spaceName(u.space) + (vehOf(u.space) ? ' ('+vehOf(u.space).name+')' : ''), r1(u.x), r1(u.z), r1(u.y), u.dx, u.dy, u.dz, u.space.startsWith('v:') ? tierOf(u) : '', t.weight]); });
+  rows[0].push('Кол-во, шт');
+  S.units.forEach((u,i) => { const t = typeOf(u); const where = spaceName(u.space) + (vehOf(u.space) ? ' ('+vehOf(u.space).name+')' : '');
+    if (u.blk){ t.parts.forEach(p => rows.push([i+1, p.t.name + ' (' + fmtPipe(p.t) + ')', 'Трубы, штабель в седло', where, r1(u.x), r1(u.z), r1(u.y), u.dx, u.dy, u.dz, '', Math.round(p.n*pipeKg(p.t)), p.n])); return; }
+    rows.push([i+1, t.name, t.pkg, where, r1(u.x), r1(u.z), r1(u.y), u.dx, u.dy, u.dz, u.space.startsWith('v:') ? tierOf(u) : '', t.weight, 1]); });
   const csv = '\ufeff' + rows.map(r => r.map(c => { const s = String(c).replace('.',','); return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }).join(';')).join('\n');
   saveFile('Ведомость погрузки — ' + (S.name||'план').replace(/[\\/:*?"<>|]/g,'_') + '.csv', csv);
 };
@@ -1468,6 +1760,7 @@ document.getElementById('jsonFile').addEventListener('change', e => { const f = 
 document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { curView = b.dataset.view; setView(curView); });
 document.getElementById('labelsBtn').onclick = e => { showLabels = !showLabels; e.currentTarget.setAttribute('aria-pressed', showLabels); renderUnits(); };
 document.getElementById('packBtn').onclick = autoPack;
+document.getElementById('distBtn').onclick = distribute;
 document.getElementById('balanceBtn').onclick = () => { const v = av(); if (!S.units.some(u => u.space === 'v:'+v.id)){ toast('В этом транспорте нет мест'); return; } pushHist(); balance(v); refresh(); toast(v.kind === 'cont' ? 'Груз смещён к центру контейнера' : 'Груз сдвинут для равномерной нагрузки на оси'); };
 document.getElementById('strategy').onchange = e => { S.strategy = e.target.value; autosave(); };
 document.getElementById('undoBtn').onclick = undo;
