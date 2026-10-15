@@ -1,0 +1,14 @@
+services:
+  load-planner:
+    # Сборка из исходников. Чтобы брать готовый образ из GitHub, закомментируйте build
+    # и раскомментируйте image, подставив владельца и имя репозитория в нижнем регистре.
+    build: .
+    # image: ghcr.io/<владелец>/<репозиторий>:main
+    container_name: load-planner
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - HISTORY_KEEP=20
+    volumes:
+      - ./data:/app/data

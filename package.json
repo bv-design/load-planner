@@ -1,0 +1,16 @@
+{
+  "name": "load-planner",
+  "version": "1.0.0-test",
+  "description": "Планировщик загрузки грузового пространства (тестовая версия)",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/server.test.js",
+    "check": "node --check server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

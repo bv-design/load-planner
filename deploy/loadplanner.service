@@ -1,0 +1,27 @@
+# /etc/systemd/system/loadplanner.service
+# Установка:
+#   sudo cp -r load-planner /opt/load-planner
+#   sudo useradd --system --home /opt/load-planner loadplanner
+#   sudo chown -R loadplanner: /opt/load-planner
+#   sudo cp deploy/loadplanner.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now loadplanner
+[Unit]
+Description=Load planner (test)
+After=network.target
+
+[Service]
+Type=simple
+User=loadplanner
+WorkingDirectory=/opt/load-planner
+Environment=PORT=8080
+Environment=HOST=127.0.0.1
+Environment=DATA_DIR=/opt/load-planner/data
+ExecStart=/usr/bin/node /opt/load-planner/server.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/load-planner/data
+
+[Install]
+WantedBy=multi-user.target

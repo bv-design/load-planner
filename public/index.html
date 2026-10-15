@@ -1,0 +1,1368 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Планировщик загрузки</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%9A%9B%3C/text%3E%3C/svg%3E">
+<link href="vendor/fonts/golos.css" rel="stylesheet">
+<style>
+:root{
+  --bg:#E7EBEE; --panel:#F8FAFB; --panel-2:#EFF2F4; --ink:#1D252C; --ink-2:#5A6670; --ink-3:#8793A0;
+  --line:#D2D9DF; --accent:#F0B400; --accent-ink:#1D252C; --steel:#3C5A73; --steel-soft:#DCE6EE;
+  --danger:#C8323C; --danger-soft:#F8E1E3; --ok:#2C8C5A; --ok-soft:#DDF0E5; --warn:#B37400;
+  --scene-bg:#EEF2F5; --grid-1:#C3CCD4; --grid-2:#DCE2E7; --truck:#F3F5F7; --truck-edge:#9AA6B0; --space-edge:#55636F;
+  --radius-s:6px; --radius-m:10px;
+  --font:"Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12171B; --panel:#192026; --panel-2:#1F272E; --ink:#E6ECF0; --ink-2:#9DAAB4; --ink-3:#6E7B86;
+    --line:#2A343C; --accent:#F2BE22; --accent-ink:#12171B; --steel:#8DB0CE; --steel-soft:#24323D;
+    --danger:#F06A6F; --danger-soft:#3A2023; --ok:#4CC38A; --ok-soft:#1C3328; --warn:#E3A93A;
+    --scene-bg:#161C21; --grid-1:#34404A; --grid-2:#222A31; --truck:#3A444C; --truck-edge:#6B7884; --space-edge:#A9B6C1;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12171B; --panel:#192026; --panel-2:#1F272E; --ink:#E6ECF0; --ink-2:#9DAAB4; --ink-3:#6E7B86;
+  --line:#2A343C; --accent:#F2BE22; --accent-ink:#12171B; --steel:#8DB0CE; --steel-soft:#24323D;
+  --danger:#F06A6F; --danger-soft:#3A2023; --ok:#4CC38A; --ok-soft:#1C3328; --warn:#E3A93A;
+  --scene-bg:#161C21; --grid-1:#34404A; --grid-2:#222A31; --truck:#3A444C; --truck-edge:#6B7884; --space-edge:#A9B6C1;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font);font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+
+.app{height:100%;display:grid;grid-template-rows:auto 1fr}
+header.bar{display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);min-width:0}
+.plan-name{font-weight:600;font-size:16px;border:1px solid transparent;background:transparent;padding:5px 8px;border-radius:var(--radius-s);width:min(260px,30vw)}
+.plan-name:hover,.plan-name:focus{border-color:var(--line);background:var(--panel-2)}
+.vtabs{display:flex;gap:4px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:thin}
+.vtab{display:flex;align-items:baseline;gap:6px;white-space:nowrap;border:1px solid var(--line);background:var(--panel);padding:5px 10px;border-radius:var(--radius-s)}
+.vtab small{color:var(--ink-3);font-size:12px}
+.vtab[aria-selected="true"]{border-color:var(--ink);box-shadow:inset 0 -3px 0 var(--accent)}
+.vtab.add{color:var(--ink-2)}
+.hdr-actions{display:flex;gap:6px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--panel);padding:6px 11px;border-radius:var(--radius-s);white-space:nowrap;line-height:1.2}
+.btn:hover{background:var(--panel-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{filter:brightness(.96)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--panel-2)}
+.btn.danger{color:var(--danger)}
+.btn.sm{padding:4px 8px;font-size:13px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.icon{width:16px;height:16px;flex:none}
+
+main.layout{display:grid;grid-template-columns:310px minmax(0,1fr) 320px;min-height:0}
+aside{background:var(--panel);overflow:auto;min-height:0}
+aside.left{border-right:1px solid var(--line);display:flex;flex-direction:column}
+aside.right{border-left:1px solid var(--line)}
+.sec{padding:14px 16px;border-bottom:1px solid var(--line)}
+.sec h2{font-size:15px;font-weight:600;margin:0 0 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sec h2 .sub{font-weight:400;color:var(--ink-3);font-size:13px}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+
+.clist{flex:1;overflow:auto;padding:4px 0}
+.ci{display:grid;grid-template-columns:30px 1fr auto;gap:10px;padding:9px 12px 9px 16px;border-left:3px solid transparent;align-items:start}
+.ci:hover{background:var(--panel-2)}
+.ci.sel{border-left-color:var(--accent);background:var(--panel-2)}
+.ci.flash{animation:flash 1s ease}
+@keyframes flash{0%{background:var(--steel-soft)}100%{background:transparent}}
+.dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#1d252c}
+.dot svg{width:14px;height:14px;opacity:.75}
+.ci-title{font-weight:500}
+.ci-title b{color:var(--ink-3);font-weight:500;margin-right:2px}
+.ci-sub,.ci-flags{font-size:12.5px;color:var(--ink-2)}
+.ci-flags{color:var(--ink-3);display:flex;gap:10px;flex-wrap:wrap}
+.ci-place{font-size:12.5px;margin-top:2px}
+.ci-place .bad{color:var(--warn)}
+.ci-act{display:flex;gap:2px;opacity:.55}
+.ci:hover .ci-act,.ci.sel .ci-act{opacity:1}
+.ci-act button{border:0;background:transparent;padding:4px;border-radius:4px;color:var(--ink-2)}
+.ci-act button:hover{background:var(--line)}
+.empty{padding:28px 18px;color:var(--ink-2);text-align:center}
+.empty p{margin:0 0 12px}
+.totals{border-top:1px solid var(--line);padding:10px 16px;font-size:13px;color:var(--ink-2);display:flex;gap:14px;flex-wrap:wrap}
+.totals b{color:var(--ink);font-weight:600}
+
+.stage{position:relative;min-width:0;min-height:0;background:var(--scene-bg)}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.tbar{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;pointer-events:none}
+.tb{display:flex;gap:6px;flex-wrap:wrap;align-items:center;pointer-events:auto}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-s);padding:2px}
+.seg button{border:0;background:transparent;padding:4px 9px;border-radius:4px;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+select.inp,input.inp{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius-s);padding:6px 8px;min-width:0}
+.hint{position:absolute;left:10px;bottom:10px;display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);pointer-events:none}
+.hint span{background:color-mix(in srgb,var(--panel) 80%,transparent);padding:3px 7px;border-radius:4px}
+kbd{font:inherit;font-weight:600;color:var(--ink)}
+.status{position:absolute;left:50%;top:96px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:6px 12px;border-radius:var(--radius-s);font-size:13px;pointer-events:none;display:none;max-width:90%;text-align:center}
+.status.bad{background:var(--danger);color:#fff}
+
+.selcard{position:absolute;right:10px;bottom:10px;width:280px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-m);padding:12px 14px;display:none;box-shadow:0 6px 24px rgba(20,30,40,.12)}
+.selcard h3{margin:0 0 2px;font-size:15px;display:flex;align-items:center;gap:8px;padding-right:26px}
+.selcard .x{position:absolute;top:8px;right:8px;border:0;background:transparent;color:var(--ink-2);padding:4px 7px;border-radius:4px}
+.selcard .x:hover{background:var(--panel-2)}
+.selcard .meta{font-size:12.5px;color:var(--ink-2);margin-bottom:8px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px}
+.kv dt{color:var(--ink-2)} .kv dd{margin:0;text-align:right;font-weight:500}
+.selcard .row{margin-top:10px}
+.reasons{margin:8px 0 0;padding:6px 8px;background:var(--danger-soft);color:var(--danger);border-radius:var(--radius-s);font-size:12.5px}
+
+.bar-m{margin:8px 0 12px}
+.bar-m .lbl{display:flex;justify-content:space-between;font-size:13px}
+.bar-m .lbl span:last-child{color:var(--ink-2)}
+.track{height:7px;background:var(--panel-2);border-radius:4px;overflow:hidden;margin-top:4px;border:1px solid var(--line)}
+.fill{height:100%;background:var(--steel);border-radius:3px}
+.fill.over{background:var(--danger)} .fill.near{background:var(--warn)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:13px}
+.grid2 div span{display:block;color:var(--ink-3);font-size:12px}
+.axle{padding:8px 0;border-top:1px dashed var(--line)}
+.axle:first-of-type{border-top:0}
+.axle .lbl{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.axle .lbl b{font-weight:600}
+.axle .lbl b.over{color:var(--danger)}
+.axle .note{font-size:12px;color:var(--ink-3)}
+.warns{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.warns li{font-size:13px;padding:7px 9px;border-radius:var(--radius-s);background:var(--danger-soft);color:var(--danger)}
+.warns li.w{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+.warns li.ok{background:var(--ok-soft);color:var(--ok)}
+.vinfo{font-size:13px;color:var(--ink-2);margin-top:8px}
+
+dialog{border:1px solid var(--line);border-radius:var(--radius-m);background:var(--panel);color:var(--ink);padding:0;width:min(640px,94vw);max-height:90vh}
+dialog.wide{width:min(980px,96vw)}
+dialog::backdrop{background:rgba(15,22,28,.45)}
+.dlg-h{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
+.dlg-h h2{margin:0;font-size:17px;font-weight:600}
+.dlg-b{padding:16px 18px;overflow:auto;max-height:calc(90vh - 130px)}
+.dlg-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
+.form{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.f{display:flex;flex-direction:column;gap:4px;grid-column:span 2}
+.f.s1{grid-column:span 1}.f.s3{grid-column:span 3}.f.s6{grid-column:span 6}
+.f label,.f .lab{font-size:12.5px;color:var(--ink-2)}
+.f input,.f select,.f textarea{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius-s);padding:7px 9px;width:100%}
+.f input[type=color]{padding:2px;height:36px}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink)}
+.chk input{width:16px;height:16px;accent-color:var(--steel)}
+.fs{grid-column:span 6;font-size:13px;font-weight:600;margin-top:4px;padding-top:10px;border-top:1px solid var(--line)}
+.err{color:var(--danger);font-size:13px;min-height:1em}
+.drop{border:1.5px dashed var(--line);border-radius:var(--radius-m);padding:18px;text-align:center;color:var(--ink-2)}
+.drop.over{border-color:var(--steel);background:var(--steel-soft)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius-s);margin-top:10px}
+table.t{border-collapse:collapse;width:100%;font-size:12.5px}
+table.t th,table.t td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+table.t th{background:var(--panel-2);font-weight:600}
+table.t td.num{text-align:right}
+table.t tr.bad td{color:var(--danger)}
+.map .f{grid-column:auto}
+.map{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-top:12px}
+.plans{list-style:none;margin:0;padding:0}
+.plans li{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.plans li .nm{flex:1;min-width:0}
+.plans li .nm small{display:block;color:var(--ink-3)}
+.muted{color:var(--ink-2);font-size:13px}
+
+.ctx{position:fixed;z-index:50;min-width:250px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-m);box-shadow:0 10px 30px rgba(20,30,40,.18);padding:6px;display:none}
+.ctx .t{font-weight:600;padding:6px 10px}
+.ctx .g{font-size:12px;color:var(--ink-3);padding:6px 10px 2px}
+.ctx button{display:flex;width:100%;align-items:center;gap:8px;border:0;background:transparent;padding:7px 10px;border-radius:6px;text-align:left}
+.ctx button:hover{background:var(--panel-2)}
+.ctx button .k{margin-left:auto;color:var(--ink-3);font-size:12px}
+.ctx hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+.ctx .kv{padding:2px 10px 6px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:9px 14px;border-radius:var(--radius-s);font-size:13.5px;z-index:60;display:none;max-width:90vw}
+
+@media (max-width:1100px){
+  main.layout{grid-template-columns:270px minmax(0,1fr)}
+  aside.right{grid-column:1 / -1;border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .app{height:auto;min-height:100%}
+  main.layout{grid-template-rows:72vh auto}
+}
+@media (max-width:720px){
+  header.bar{flex-wrap:wrap}
+  .plan-name{width:100%}
+  main.layout{grid-template-columns:1fr;grid-template-rows:62vh auto auto}
+  aside.left{border-right:0;border-top:1px solid var(--line);order:2;max-height:none}
+  .stage{order:1}
+  aside.right{order:3}
+  .selcard{left:10px;right:10px;width:auto}
+  .hint{display:none}
+  .form{grid-template-columns:repeat(2,1fr)}
+  .f,.f.s3,.f.s6{grid-column:span 2}.f.s1{grid-column:span 1}
+}
+@media (prefers-reduced-motion:reduce){.ci.flash{animation:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <input class="plan-name" id="planName" aria-label="Название плана" value="Новый план">
+    <div class="vtabs" id="vtabs" role="tablist" aria-label="Транспорт"></div>
+    <div class="hdr-actions">
+      <button class="btn ghost" id="undoBtn" title="Отменить (Ctrl+Z)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>Отменить</button>
+      <button class="btn" id="plansBtn">Планы и файлы</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="left" aria-label="Грузовые места">
+      <div class="sec">
+        <h2>Грузовые места <span class="sub" id="cntTypes"></span></h2>
+        <div class="row">
+          <button class="btn primary" id="addCargoBtn">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Создать место</button>
+          <button class="btn" id="importBtn">Импорт пакинга</button>
+        </div>
+      </div>
+      <div class="clist" id="clist"></div>
+      <div class="totals" id="totals"></div>
+    </aside>
+
+    <section class="stage" id="stage" aria-label="Грузовое пространство">
+      <div class="tbar"><div class="tb">
+        <div class="seg" role="group" aria-label="Вид">
+          <button data-view="iso" aria-pressed="true">3D</button>
+          <button data-view="top">Сверху</button>
+          <button data-view="side">Сбоку</button>
+          <button data-view="rear">Сзади</button>
+        </div>
+        <button class="btn sm" id="labelsBtn" aria-pressed="true">Подписи</button>
+      </div>
+      <div class="tb">
+        <select class="inp" id="strategy" aria-label="Способ расстановки">
+          <option value="floor">Сначала пол</option>
+          <option value="front">От передней стенки</option>
+        </select>
+        <button class="btn primary" id="packBtn">Расставить автоматически</button>
+        <button class="btn" id="balanceBtn" title="Сдвинуть груз для равномерной нагрузки на оси">Сбалансировать</button>
+      </div></div>
+      <div class="status" id="status"></div>
+      <div class="hint">
+        <span><kbd>ЛКМ</kbd> перетащить</span><span><kbd>ПКМ</kbd> меню</span><span><kbd>R</kbd> повернуть</span><span><kbd>T</kbd> кантовать</span><span><kbd>Стрелки</kbd> сдвиг 1 см, с Shift 10 см</span><span><kbd>Del</kbd> в Док 1</span>
+      </div>
+      <div class="selcard" id="selcard"></div>
+    </section>
+
+    <aside class="right" aria-label="Показатели">
+      <div class="sec" id="vehSec"></div>
+      <div class="sec" id="loadSec"></div>
+      <div class="sec" id="axleSec"></div>
+      <div class="sec" id="warnSec"></div>
+    </aside>
+  </main>
+</div>
+
+<div class="ctx" id="ctx" role="menu"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Cargo dialog -->
+<dialog id="cargoDlg">
+  <form method="dialog" id="cargoForm">
+    <div class="dlg-h"><h2 id="cargoDlgTitle">Новое грузовое место</h2><button class="btn ghost" value="cancel" aria-label="Закрыть">✕</button></div>
+    <div class="dlg-b">
+      <div class="form">
+        <div class="f s6"><label for="cf_name">Наименование</label><input id="cf_name" required placeholder="Например, лист Hardox 450 10 мм"></div>
+        <div class="f s3"><label for="cf_pkg">Тип упаковки</label><select id="cf_pkg"></select></div>
+        <div class="f s3"><label for="cf_preset">Типовой размер</label>
+          <select id="cf_preset">
+            <option value="">Свои размеры</option>
+            <option value="120,80,">Европаллета 120 × 80</option>
+            <option value="120,100,">Финпаллета 120 × 100</option>
+            <option value="114,114,">Паллета 114 × 114</option>
+            <option value="600,150,">Пачка листов 6000 × 1500</option>
+            <option value="1200,200,">Пачка листов 12000 × 2000</option>
+            <option value="1200,43,43">Труба 12 м в упаковке</option>
+          </select></div>
+        <div class="f"><label for="cf_L">Длина, см</label><input id="cf_L" type="number" min="1" step="0.1" required></div>
+        <div class="f"><label for="cf_W">Ширина, см</label><input id="cf_W" type="number" min="1" step="0.1" required></div>
+        <div class="f"><label for="cf_H">Высота, см</label><input id="cf_H" type="number" min="0.1" step="0.1" required></div>
+        <div class="f"><label for="cf_wt">Вес одного места, кг</label><input id="cf_wt" type="number" min="0" step="0.1" required></div>
+        <div class="f"><label for="cf_qty">Количество, шт</label><input id="cf_qty" type="number" min="1" max="999" step="1" value="1" required></div>
+        <div class="f"><label for="cf_color">Цвет</label><input id="cf_color" type="color"></div>
+        <div class="fs">Правила укладки</div>
+        <div class="f s3"><label class="chk"><input type="checkbox" id="cf_stack" checked> Можно ставить сверху (штабелировать)</label></div>
+        <div class="f s3"><label class="chk"><input type="checkbox" id="cf_rotate" checked> Можно поворачивать</label></div>
+        <div class="f s3"><label class="chk"><input type="checkbox" id="cf_tilt"> Можно кантовать (класть на бок)</label></div>
+        <div class="f s3"></div>
+        <div class="f s3"><label for="cf_tiers">Максимум ярусов</label><input id="cf_tiers" type="number" min="0" step="1" value="0"><span class="muted">0 — без ограничений</span></div>
+        <div class="f s3"><label for="cf_top">Допустимая нагрузка сверху, кг</label><input id="cf_top" type="number" min="0" step="1" value="0"><span class="muted">0 — без ограничений</span></div>
+      </div>
+      <p class="err" id="cf_err"></p>
+    </div>
+    <div class="dlg-f"><button class="btn" value="cancel">Отмена</button><button class="btn primary" id="cf_save" value="default">Сохранить</button></div>
+  </form>
+</dialog>
+
+<!-- Import dialog -->
+<dialog id="importDlg" class="wide">
+  <div class="dlg-h"><h2>Импорт пакинг-листа</h2><button class="btn ghost" data-close aria-label="Закрыть">✕</button></div>
+  <div class="dlg-b">
+    <div class="drop" id="drop">
+      <p style="margin:0 0 10px">Перетащите файл Excel или CSV сюда или выберите его</p>
+      <input type="file" id="impFile" accept=".xlsx,.xls,.csv,.txt">
+    </div>
+    <div class="f s6" style="margin-top:12px"><label for="impPaste">Или вставьте строки, скопированные из Excel (с заголовком)</label>
+      <textarea id="impPaste" rows="4" placeholder="Наименование	Длина	Ширина	Высота	Вес брутто	Кол-во"></textarea></div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="impParse">Разобрать вставленное</button><button class="btn ghost" id="impTemplate">Скачать шаблон</button></div>
+    <div id="impMap"></div>
+    <p class="err" id="impErr"></p>
+  </div>
+  <div class="dlg-f"><button class="btn" data-close>Отмена</button><button class="btn primary" id="impGo" disabled>Добавить места</button></div>
+</dialog>
+
+<!-- Vehicle dialog -->
+<dialog id="vehDlg">
+  <form method="dialog" id="vehForm">
+    <div class="dlg-h"><h2 id="vehDlgTitle">Параметры транспорта</h2><button class="btn ghost" value="cancel" aria-label="Закрыть">✕</button></div>
+    <div class="dlg-b">
+      <div class="form">
+        <div class="f s6"><label for="vf_preset">Тип грузового пространства</label><select id="vf_preset"></select></div>
+      </div>
+      <div class="form" id="vfFields" style="margin-top:12px"></div>
+      <p class="err" id="vf_err"></p>
+    </div>
+    <div class="dlg-f"><button class="btn danger" id="vf_delete" value="delete" style="margin-right:auto">Удалить транспорт</button><button class="btn" value="cancel">Отмена</button><button class="btn primary" value="default" id="vf_save">Сохранить</button></div>
+  </form>
+</dialog>
+
+<!-- Plans dialog -->
+<dialog id="plansDlg">
+  <div class="dlg-h"><h2>Планы и файлы</h2><button class="btn ghost" data-close aria-label="Закрыть">✕</button></div>
+  <div class="dlg-b">
+    <div class="f s6" style="margin-bottom:10px"><label for="plAuthor">Ваше имя (видно коллегам в списке планов)</label><input id="plAuthor" placeholder="Например, Иван Петров, склад Тайшет"></div>
+    <div class="row">
+      <button class="btn primary" id="plSave">Сохранить план</button>
+      <button class="btn" id="plSaveNew">Сохранить как новый</button>
+      <button class="btn" id="plNew">Новый пустой план</button>
+    </div>
+    <p class="muted" id="plStatus"></p>
+    <ul class="plans" id="plList"></ul>
+    <div class="fs" style="margin:14px 0 8px;padding-top:12px;border-top:1px solid var(--line);font-weight:600">Файлы</div>
+    <div class="row" id="dlRow">
+      <button class="btn" id="exCsv">Ведомость погрузки (CSV)</button>
+      <button class="btn" id="exPng">Снимок вида (PNG)</button>
+      <button class="btn" id="exJson">План целиком (JSON)</button>
+    </div>
+    <p class="muted" id="dlNote"></p>
+    <div class="f s6" style="margin-top:10px"><label for="jsonFile">Открыть план из файла JSON</label><input type="file" id="jsonFile" accept=".json"></div>
+  </div>
+</dialog>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script>
+(function(){
+"use strict";
+/* ============================== constants ============================== */
+const EPS = 0.5;                  // cm tolerance
+const DOCK_W = 320, DOCK_GAP = 260;
+const PALETTE = ['#C08FEA','#EE93D8','#DDA9D2','#B17BEA','#BFE3D6','#D6EA8C','#8F8AE8','#8EE08A','#EBC8DA','#8FE3E0','#9FCCF5','#F5C98F','#A7E0B0','#F0A3A3','#B3C7F7','#E8DF8A'];
+const PKG = ['Ящик','Паллета','Пачка листов','Лист','Труба / связка','Рулон','Бухта','Биг-бэг','Мешок','Бочка','Коробка','Другое'];
+
+const PRESETS = {
+  tent136:{name:'Тент 13,6 м, стандарт', kind:'semi', L:1360,W:245,H:260,payload:22000,deckH:120,gross:40000,
+    kingpin:120,axleX:935,trAxles:3,trAxleSpacing:131,wb:380,fw:60,driveAxles:1,
+    tare:{steer:5000,drive:2600,kp:2500,tr:4500}, lim:{steer:8000,drive:11500,tr:24000}},
+  mega136:{name:'Мега 13,6 м (h 3,0 м)', kind:'semi', L:1360,W:248,H:300,payload:22000,deckH:95,gross:40000,
+    kingpin:120,axleX:935,trAxles:3,trAxleSpacing:131,wb:380,fw:60,driveAxles:1,
+    tare:{steer:5000,drive:2500,kp:2600,tr:4700}, lim:{steer:8000,drive:11500,tr:24000}},
+  long154:{name:'Удлинённый п/п 15,4 м', kind:'semi', L:1540,W:248,H:270,payload:24000,deckH:120,gross:44000,
+    kingpin:120,axleX:1080,trAxles:3,trAxleSpacing:131,wb:380,fw:60,driveAxles:2,
+    tare:{steer:5300,drive:3900,kp:2800,tr:5200}, lim:{steer:8000,drive:19000,tr:24000}},
+  flat136:{name:'Площадка 13,6 м, открытая', kind:'semi', open:true, L:1360,W:248,H:270,payload:25000,deckH:135,gross:40000,
+    kingpin:120,axleX:935,trAxles:3,trAxleSpacing:131,wb:380,fw:60,driveAxles:1,
+    tare:{steer:5000,drive:2500,kp:2200,tr:3800}, lim:{steer:8000,drive:11500,tr:24000}},
+  van72:{name:'Фургон 7,2 м, 10 т', kind:'rigid', L:720,W:245,H:240,payload:10000,deckH:110,gross:18000,
+    steerX:-150,rearX:430,rearAxles:1, tare:{steer:4200,rear:3300}, lim:{steer:7500,rear:11500}},
+  c20:{name:'Контейнер 20′ DC', kind:'cont', L:589,W:235,H:239,payload:28200,deckH:15},
+  c40:{name:'Контейнер 40′ DC', kind:'cont', L:1203,W:235,H:239,payload:26700,deckH:15},
+  c40hc:{name:'Контейнер 40′ HC', kind:'cont', L:1203,W:235,H:269,payload:26500,deckH:15},
+  c45hc:{name:'Контейнер 45′ HC', kind:'cont', L:1355,W:235,H:269,payload:27700,deckH:15},
+  custom:{name:'Своё пространство', kind:'cont', L:1000,W:240,H:250,payload:20000,deckH:15}
+};
+
+/* ============================== state ============================== */
+let S = null;
+let hist = [];
+let selUid = null;
+let showLabels = true;
+let plansCache = [];
+let api = false; const API = (p) => new URL('api/' + p, location.href).toString();
+const APP_VERSION = '1.0.0-test';
+
+const uid = () => Math.random().toString(36).slice(2,10);
+const r1 = v => Math.round(v*10)/10;
+const nf = new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1});
+const nf2 = new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtKg = v => nf.format(Math.round(v)) + ' кг';
+const fmtT = v => nf2.format(v/1000) + ' т';
+const fmtCm = v => nf.format(r1(v));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function makeVehicle(key){ const p = JSON.parse(JSON.stringify(PRESETS[key])); return Object.assign({id:uid(), preset:key}, p); }
+function blankState(){ const v = makeVehicle('tent136'); return {name:'Новый план', types:[], units:[], vehicles:[v], activeV:v.id, strategy:'floor', planId:null}; }
+
+const av = () => S.vehicles.find(v => v.id === S.activeV) || S.vehicles[0];
+const vehOf = sp => sp && sp.startsWith('v:') ? S.vehicles.find(v => 'v:'+v.id === sp) : null;
+const typeOf = u => S.types.find(t => t.id === u.tid);
+const unitById = id => S.units.find(u => u.uid === id);
+const dockLen = () => Math.max(av().L, 1360);
+
+function bounds(sp){
+  const v = vehOf(sp); if (v) return {L:v.L, W:v.W, H:v.H};
+  if (sp === 'd1' || sp === 'd2') return {L:dockLen(), W:DOCK_W, H:600};
+  return null;
+}
+function origin(sp){
+  const v = av();
+  if (sp.startsWith('v:')) return {x:0, y:(vehOf(sp)||v).deckH, z:0};
+  if (sp === 'd1') return {x:0, y:0, z:-DOCK_GAP-DOCK_W};
+  if (sp === 'd2') return {x:0, y:0, z:v.W+DOCK_GAP};
+  return {x:0, y:0, z:0};
+}
+function spaceName(sp){
+  if (sp === 'd1') return 'Док 1'; if (sp === 'd2') return 'Док 2'; if (sp === 'free') return 'Площадка';
+  const i = S.vehicles.findIndex(v => 'v:'+v.id === sp); return i >= 0 ? 'ТС ' + (i+1) : '—';
+}
+
+function orients(t){
+  const {L,W,H} = t; const o = [[L,H,W]];
+  if (t.rotate) o.push([W,H,L]);
+  if (t.tilt){ o.push([L,W,H]); if (t.rotate) o.push([H,W,L],[W,L,H],[H,L,W]); }
+  const seen = new Set(); return o.filter(a => { const k = a.join('|'); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+/* ============================== geometry ============================== */
+const ov = (a0,a1,b0,b1) => Math.min(a1,b1) - Math.max(a0,b0);
+function xzA(a,b){ const ox = ov(a.x,a.x+a.dx,b.x,b.x+b.dx), oz = ov(a.z,a.z+a.dz,b.z,b.z+b.dz); return (ox>EPS && oz>EPS) ? ox*oz : 0; }
+function others(sp, excl){ return S.units.filter(u => u.space === sp && u !== excl); }
+function dropY(sp, b, excl){ let y = 0; for (const u of S.units){ if (u.space !== sp || u === excl) continue; if (xzA(u,b) > 0) y = Math.max(y, u.y+u.dy); } return r1(y); }
+function supportsOf(sp, b, excl){
+  const r = []; if (b.y < EPS) return r;
+  for (const u of S.units){ if (u.space !== sp || u === excl || u === b) continue; if (Math.abs(u.y+u.dy-b.y) < EPS){ const a = xzA(u,b); if (a>0) r.push({u,a}); } }
+  return r;
+}
+function tierOf(u, memo){ memo = memo || new Map(); if (u.y < EPS) return 1; if (memo.has(u)) return memo.get(u); memo.set(u,1);
+  let t = 1; for (const s of supportsOf(u.space,u,u)) t = Math.max(t, tierOf(s.u,memo)+1); memo.set(u,t); return t; }
+function onTop(u){ return S.units.filter(w => w.space === u.space && w !== u && Math.abs(w.y-(u.y+u.dy)) < EPS && xzA(u,w) > 0); }
+function loadOn(u, excl, depth){
+  depth = depth || 0; if (depth > 40) return 0; let sum = 0;
+  for (const w of onTop(u)){ if (w === excl) continue; const sup = supportsOf(w.space,w,excl); const tot = sup.reduce((s,x)=>s+x.a,0) || 1; const a = xzA(u,w);
+    sum += (typeOf(w).weight + loadOn(w,excl,depth+1)) * a / tot; }
+  return sum;
+}
+function validate(sp, b, t, excl){
+  const R = []; const B = bounds(sp);
+  if (B){
+    if (b.x < -EPS || b.z < -EPS || b.x+b.dx > B.L+EPS || b.z+b.dz > B.W+EPS) R.push('выходит за стенки');
+    if (b.y+b.dy > B.H+EPS) R.push('не проходит по высоте');
+  }
+  for (const u of S.units){ if (u.space !== sp || u === excl) continue;
+    if (xzA(u,b) > 0 && ov(u.y,u.y+u.dy,b.y,b.y+b.dy) > EPS){ R.push('пересекается с другим местом'); break; } }
+  if (b.y > EPS){
+    const s = supportsOf(sp,b,excl); const area = s.reduce((a,x)=>a+x.a,0);
+    if (area < 0.6*b.dx*b.dz) R.push('опора меньше 60% площади');
+    for (const {u} of s){ const ut = typeOf(u); if (!ut.stack){ R.push('на «'+ut.name+'» нельзя ставить сверху'); break; } }
+    let tier = 1; const memo = new Map(); for (const {u} of s) tier = Math.max(tier, tierOf(u,memo)+1);
+    if (t.maxTiers > 0 && tier > t.maxTiers) R.push('ярус '+tier+', допускается '+t.maxTiers);
+    else for (const {u} of s){ const ut = typeOf(u); if (ut.maxTiers > 0 && tier > ut.maxTiers){ R.push('для «'+ut.name+'» не более '+ut.maxTiers+' ярусов'); break; } }
+    const ar = area || 1;
+    for (const {u,a} of s){ const ut = typeOf(u); if (ut.maxTop > 0){ const L = loadOn(u,excl) + t.weight*a/ar; if (L > ut.maxTop+0.5){ R.push('нагрузка на «'+ut.name+'» '+fmtKg(L)+' при допустимых '+fmtKg(ut.maxTop)); break; } } }
+  }
+  return R;
+}
+
+/* ============================== packing ============================== */
+function cmp(a,b){ for (let i=0;i<a.length;i++){ if (a[i] < b[i]-1e-6) return -1; if (a[i] > b[i]+1e-6) return 1; } return 0; }
+function pack(sp, list, strategy){
+  const B = bounds(sp); const veh = vehOf(sp);
+  list.forEach(u => u.space = '__limbo');
+  let total = veh ? weightIn(sp) : 0;
+  const pts = new Map();
+  const addP = (x,z) => { x = r1(x); z = r1(z); if (x < B.L-EPS && z < B.W-EPS && x >= 0 && z >= 0) pts.set(x+','+z,[x,z]); };
+  addP(0,0);
+  for (const u of S.units) if (u.space === sp){ addP(u.x,u.z); addP(u.x+u.dx,u.z); addP(u.x,u.z+u.dz); addP(u.x+u.dx,0); addP(0,u.z+u.dz); }
+  const area = t => { const d = [t.L,t.W,t.H].sort((a,b)=>b-a); return d[0]*d[1]; };
+  const sorted = list.slice().sort((a,b) => { const ta = typeOf(a), tb = typeOf(b);
+    return (Math.max(tb.L,tb.W) - Math.max(ta.L,ta.W)) || (area(tb) - area(ta)) || (tb.weight - ta.weight) || (ta.stack - tb.stack); });
+  const un = [];
+  for (const u of sorted){
+    const t = typeOf(u);
+    if (veh && total + t.weight > veh.payload + 0.5){ un.push(u); continue; }
+    let best = null;
+    for (const [x,z] of pts.values()){
+      for (const o of orients(t)){
+        const b = {x, z, dx:o[0], dy:o[1], dz:o[2], y:0};
+        if (x+b.dx > B.L+EPS || z+b.dz > B.W+EPS) continue;
+        b.y = dropY(sp,b,u);
+        if (b.y + b.dy > B.H+EPS) continue;
+        const sc = strategy === 'front' ? [b.x,b.y,b.z] : [b.y,b.x,b.z];
+        if (best && cmp(sc,best.s) >= 0) continue;
+        if (validate(sp,b,t,u).length) continue;
+        best = {b, s:sc};
+      }
+    }
+    if (!best){ un.push(u); continue; }
+    const b = best.b; Object.assign(u,{x:b.x,y:b.y,z:b.z,dx:b.dx,dy:b.dy,dz:b.dz,space:sp}); total += t.weight;
+    addP(b.x+b.dx,b.z); addP(b.x,b.z+b.dz); addP(b.x+b.dx,0); addP(0,b.z+b.dz); addP(b.x,b.z);
+  }
+  return un;
+}
+function placeFree(list){
+  const v = av(); let x = v.L + 500, z = 0, rowD = 0;
+  for (const u of list){ if (z + u.dz > 800){ z = 0; x += rowD + 40; rowD = 0; }
+    Object.assign(u,{space:'free',x,z,y:0}); u.y = dropY('free',u,u); z += u.dz + 30; rowD = Math.max(rowD,u.dx); }
+}
+function toDock(list, d){
+  const prev = list.map(u => ({u, s:{...u}}));
+  const un = pack(d, list, 'floor');
+  if (un.length) placeFree(un);
+  return prev;
+}
+function weightIn(sp){ return S.units.filter(u => u.space === sp).reduce((s,u)=>s+typeOf(u).weight,0); }
+
+function moveUnits(list, sp){
+  if (!list.length) return 0;
+  const prev = list.map(u => ({u, s:{...u}}));
+  let un;
+  if (sp === 'free'){ placeFree(list); return 0; }
+  un = pack(sp, list, sp.startsWith('v:') ? S.strategy : 'floor');
+  if (un.length){
+    if (sp.startsWith('v:')){ for (const p of prev) if (un.includes(p.u)) Object.assign(p.u, p.s); }
+    else placeFree(un);
+  }
+  return sp.startsWith('v:') ? un.length : 0;
+}
+
+/* ============================== axle math ============================== */
+function spread(c, n, step){ const a = []; for (let i=0;i<n;i++) a.push(c + (i-(n-1)/2)*step); return a; }
+function axleGroups(v, W, cx){
+  if (v.kind === 'semi'){
+    const kpC = W ? W*(v.axleX-cx)/(v.axleX-v.kingpin) : 0; const trC = W - kpC; const kpT = kpC + v.tare.kp; const f = v.fw/v.wb;
+    const driveX = v.kingpin + v.fw, steerX = driveX - v.wb;
+    return {front:kpC, groups:[
+      {name:'Передняя ось тягача', n:1, load:v.tare.steer + kpT*f, cargo:kpC*f, limit:v.lim.steer, xs:[steerX]},
+      {name:v.driveAxles > 1 ? 'Ведущие оси тягача' : 'Ведущая ось тягача', n:v.driveAxles, load:v.tare.drive + kpT*(1-f), cargo:kpC*(1-f), limit:v.lim.drive, xs:spread(driveX,v.driveAxles,135)},
+      {name:'Оси полуприцепа', n:v.trAxles, load:v.tare.tr + trC, cargo:trC, limit:v.lim.tr, xs:spread(v.axleX,v.trAxles,v.trAxleSpacing)}]};
+  }
+  if (v.kind === 'rigid'){
+    const span = v.rearX - v.steerX; const rear = W ? W*(cx - v.steerX)/span : 0; const front = W - rear;
+    return {front, groups:[
+      {name:'Передняя ось', n:1, load:v.tare.steer + front, cargo:front, limit:v.lim.steer, xs:[v.steerX]},
+      {name:(v.rearAxles||1) > 1 ? 'Задние оси' : 'Задняя ось', n:v.rearAxles||1, load:v.tare.rear + rear, cargo:rear, limit:v.lim.rear, xs:spread(v.rearX,v.rearAxles||1,135)}]};
+  }
+  return null;
+}
+function tareOf(v){ if (v.kind === 'semi') return v.tare.steer+v.tare.drive+v.tare.kp+v.tare.tr; if (v.kind === 'rigid') return v.tare.steer+v.tare.rear; return 0; }
+function stats(v){
+  const sp = 'v:'+v.id; const us = S.units.filter(u => u.space === sp);
+  let W = 0, vol = 0, mx = 0, cx = 0, cy = 0, cz = 0;
+  for (const u of us){ const w = typeOf(u).weight; W += w; vol += u.dx*u.dy*u.dz; mx = Math.max(mx,u.x+u.dx);
+    cx += w*(u.x+u.dx/2); cy += w*(u.y+u.dy/2); cz += w*(u.z+u.dz/2); }
+  if (W > 0){ cx/=W; cy/=W; cz/=W; } else { cx = v.L/2; cz = v.W/2; }
+  let front = 0; for (const u of us){ const w = typeOf(u).weight; const a = Math.max(0,Math.min(u.x+u.dx,v.L/2)-u.x); front += w*a/u.dx; }
+  return {us, W, vol, ldm:mx/100, cx, cy, cz, frontHalf:front, ax:axleGroups(v,W,cx)};
+}
+function balance(v){
+  const sp = 'v:'+v.id; const us = S.units.filter(u => u.space === sp); if (!us.length) return;
+  const st = stats(v);
+  const minX = Math.min(...us.map(u=>u.x)), maxX = Math.max(...us.map(u=>u.x+u.dx));
+  const minZ = Math.min(...us.map(u=>u.z)), maxZ = Math.max(...us.map(u=>u.z+u.dz));
+  const lo = -minX, hi = v.L - maxX; let bestD = 0, bestS = Infinity;
+  const step = Math.max(1,(hi-lo)/300);
+  for (let d = lo; d <= hi + 1e-6; d += step){
+    const cx = st.cx + d; let s;
+    const ax = axleGroups(v, st.W, cx);
+    if (ax){ s = Math.max(...ax.groups.map(g => g.load/g.limit)); if (ax.front < 0) s += 10; }
+    else s = Math.abs(cx - v.L/2);
+    if (s < bestS - 1e-9){ bestS = s; bestD = d; }
+  }
+  let dz = v.W/2 - st.cz; dz = Math.max(-minZ, Math.min(v.W - maxZ, dz));
+  us.forEach(u => { u.x = r1(u.x + bestD); u.z = r1(u.z + dz); });
+}
+
+/* ============================== history & persistence ============================== */
+function snap(){ return JSON.stringify({types:S.types, units:S.units, vehicles:S.vehicles, activeV:S.activeV}); }
+function pushHist(s){ hist.push(s || snap()); if (hist.length > 60) hist.shift(); }
+function undo(){ const s = hist.pop(); if (!s){ toast('Отменять нечего'); return; } Object.assign(S, JSON.parse(s)); selUid = null; refresh(true); }
+let saveT = null;
+function autosave(){ clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem('loadplan.v1', JSON.stringify(S)); } catch(e){} }, 400); }
+function loadLocal(){ try { const s = localStorage.getItem('loadplan.v1'); if (s){ const o = JSON.parse(s); if (o && o.vehicles && o.vehicles.length) return o; } } catch(e){} return null; }
+
+/* ============================== demo ============================== */
+function demo(){
+  S = blankState(); S.name = 'Трубы и отводы, Тайшет';
+  const add = (o) => { const t = Object.assign({id:uid(), pkg:'Ящик', stack:true, rotate:true, tilt:false, maxTiers:0, maxTop:0, qty:1}, o); t.color = t.color || PALETTE[S.types.length % PALETTE.length]; S.types.push(t); syncUnits(t, true); return t; };
+  add({name:'Труба', pkg:'Труба / связка', L:1200, W:43, H:43, weight:1620, qty:9, tilt:true});
+  add({name:'Труба 57', pkg:'Труба / связка', L:600, W:6, H:6, weight:42, qty:1, tilt:true});
+  add({name:'Отводы 1', L:140, W:110, H:95, weight:380, qty:1, color:'#8EE08A'});
+  add({name:'Отводы 2', L:140, W:110, H:95, weight:360, qty:1, color:'#9FCCF5'});
+  add({name:'Отводы 3', L:140, W:110, H:95, weight:340, qty:1, color:'#8FE3E0'});
+  add({name:'Отводы 4', L:120, W:110, H:95, weight:300, qty:1, color:'#A7E0B0'});
+  const v = av(); const pipes = S.units.filter(u => typeOf(u).name.startsWith('Труба'));
+  pack('v:'+v.id, pipes, 'floor'); balance(v);
+}
+
+/* ============================== cargo types ============================== */
+function syncUnits(t, quiet){
+  const us = S.units.filter(u => u.tid === t.id);
+  if (us.length < t.qty){
+    const o = orients(t)[0]; const fresh = [];
+    for (let i = us.length; i < t.qty; i++){ const u = {uid:uid(), tid:t.id, space:'__limbo', x:0,y:0,z:0, dx:o[0],dy:o[1],dz:o[2]}; S.units.push(u); fresh.push(u); }
+    toDock(fresh,'d1');
+  } else if (us.length > t.qty){
+    const order = us.slice().sort((a,b) => (b.space.startsWith('v:')?0:1) - (a.space.startsWith('v:')?0:1));
+    const kill = new Set(order.slice(0, us.length - t.qty));
+    S.units = S.units.filter(u => !kill.has(u));
+  }
+}
+
+/* ============================== three.js scene ============================== */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+stage.prepend(renderer.domElement);
+const canvas = renderer.domElement;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 600);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.12; controls.maxPolarAngle = Math.PI*0.495; controls.minDistance = 2; controls.maxDistance = 120;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x99a3ad, 0.85));
+const dl = new THREE.DirectionalLight(0xffffff, 0.55); dl.position.set(-8, 20, -12); scene.add(dl);
+const gStatic = new THREE.Group(), gUnits = new THREE.Group(), gLabels = new THREE.Group();
+scene.add(gStatic, gUnits, gLabels);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const M = v => v/100;
+
+function disposeGroup(g){ while (g.children.length){ const c = g.children.pop(); c.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material){ if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); } }
+function boxMesh(x0,y0,z0,x1,y1,z1,color,opts){
+  opts = opts || {};
+  const g = new THREE.BoxGeometry(M(x1-x0), M(y1-y0), M(z1-z0));
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({color, transparent:!!opts.opacity, opacity:opts.opacity ?? 1}));
+  m.position.set(M((x0+x1)/2), M((y0+y1)/2), M((z0+z1)/2));
+  if (opts.edges){ m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({color:opts.edges}))); }
+  return m;
+}
+function textSprite(text, o){
+  o = o || {}; const fs = 44, pad = 14;
+  const c = document.createElement('canvas'); const ctx = c.getContext('2d');
+  const font = (o.weight||600) + ' ' + fs + 'px "Golos Text", system-ui, sans-serif';
+  ctx.font = font; const w = Math.ceil(ctx.measureText(text).width) + pad*2; c.width = w; c.height = fs + 18;
+  ctx.font = font;
+  if (o.bg){ ctx.fillStyle = o.bg; const r = 10; ctx.beginPath(); ctx.moveTo(r,0); ctx.arcTo(w,0,w,c.height,r); ctx.arcTo(w,c.height,0,c.height,r); ctx.arcTo(0,c.height,0,0,r); ctx.arcTo(0,0,w,0,r); ctx.fill(); }
+  ctx.fillStyle = o.color || '#222'; ctx.textBaseline = 'middle'; ctx.fillText(text, pad, c.height/2 + 2);
+  const tex = new THREE.CanvasTexture(c); tex.minFilter = THREE.LinearFilter; tex.anisotropy = 4;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:o.depth ?? false}));
+  const h = o.size || 0.3; sp.scale.set(h*w/c.height, h, 1); sp.renderOrder = o.depth ? 1 : 20; return sp;
+}
+function dashedRect(x0,z0,x1,z1,color){
+  const pts = [[x0,z0],[x1,z0],[x1,z1],[x0,z1],[x0,z0]].map(p => new THREE.Vector3(M(p[0]),0.005,M(p[1])));
+  const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({color, dashSize:0.35, gapSize:0.25}));
+  l.computeLineDistances(); return l;
+}
+function wheelSet(x, zL, zR){
+  const g = new THREE.Group(); const mat = new THREE.MeshLambertMaterial({color:css('--truck')});
+  for (const z of [zL, zR]){
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.32,28), mat); w.rotation.x = Math.PI/2; w.position.set(M(x),0.5,M(z));
+    w.add(new THREE.LineSegments(new THREE.EdgesGeometry(w.geometry, 30), new THREE.LineBasicMaterial({color:css('--truck-edge')})));
+    g.add(w);
+  }
+  return g;
+}
+
+function buildStatic(){
+  disposeGroup(gStatic);
+  const v = av(); scene.background = new THREE.Color(css('--scene-bg'));
+  const grid = new THREE.GridHelper(80, 80, new THREE.Color(css('--grid-1')), new THREE.Color(css('--grid-2')));
+  grid.position.set(M(v.L/2), 0, M(v.W/2)); gStatic.add(grid);
+  const truck = css('--truck'), edge = css('--truck-edge'), spEdge = css('--space-edge'), ink2 = css('--ink-2');
+  // docks
+  const dL = dockLen();
+  for (const d of ['d1','d2']){ const o = origin(d); gStatic.add(dashedRect(o.x-40, o.z-40, o.x+dL+40, o.z+DOCK_W+40, ink2));
+    const s = textSprite(d === 'd1' ? 'Док 1' : 'Док 2', {color:ink2, size:0.45}); s.position.set(M(o.x+120), 0.05, M(d==='d1' ? o.z-90 : o.z+DOCK_W+90)); gStatic.add(s); }
+  const H0 = v.deckH;
+  // vehicle body
+  if (v.kind === 'semi' || v.kind === 'rigid'){
+    gStatic.add(boxMesh(-5, H0-18, 0, v.L+5, H0, v.W, truck, {edges:edge}));
+    gStatic.add(boxMesh(0, 60, 40, v.L-20, H0-18, v.W-40, truck, {edges:edge, opacity:0.6}));
+    let cabX0, cabX1, axX = [];
+    if (v.kind === 'semi'){ const ax = axleGroups(v,0,0); ax.groups.forEach(g => axX.push(...g.xs)); const steerX = ax.groups[0].xs[0];
+      cabX0 = steerX - 140; cabX1 = Math.min(steerX + 100, -25);
+      gStatic.add(boxMesh(cabX0+20, 60, 45, ax.groups[1].xs[ax.groups[1].xs.length-1]+70, 100, v.W-45, truck, {edges:edge}));
+    } else { const ax = axleGroups(v,0,0); ax.groups.forEach(g => axX.push(...g.xs)); cabX0 = v.steerX - 110; cabX1 = -15;
+      gStatic.add(boxMesh(cabX0+20, 60, 45, v.L-30, 95, v.W-45, truck, {edges:edge})); }
+    const cab = boxMesh(cabX0, 80, 0, cabX1, 360, v.W, truck, {edges:edge}); gStatic.add(cab);
+    gStatic.add(boxMesh(cabX0-1, 220, 20, cabX0+2, 330, v.W-20, css('--truck-edge'), {opacity:0.55}));
+    axX.forEach(x => gStatic.add(wheelSet(x, 12, v.W-12)));
+  } else {
+    // container on ground
+    gStatic.add(boxMesh(-10, 0, -8, v.L+10, H0, v.W+8, truck, {edges:edge}));
+    const frame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(M(v.L+20), M(v.H+H0+12), M(v.W+16))), new THREE.LineBasicMaterial({color:edge}));
+    frame.position.set(M(v.L/2), M((v.H+H0+12)/2), M(v.W/2)); gStatic.add(frame);
+  }
+  // cargo space
+  const spG = new THREE.BoxGeometry(M(v.L), M(v.H), M(v.W));
+  const spL = new THREE.LineSegments(new THREE.EdgesGeometry(spG), new THREE.LineBasicMaterial({color:spEdge, transparent:true, opacity:v.open ? 0.35 : 0.8}));
+  spL.position.set(M(v.L/2), M(H0+v.H/2), M(v.W/2)); gStatic.add(spL);
+  if (!v.open){ const wall = new THREE.Mesh(spG.clone(), new THREE.MeshBasicMaterial({color:spEdge, transparent:true, opacity:0.04, side:THREE.BackSide, depthWrite:false}));
+    wall.position.copy(spL.position); gStatic.add(wall); }
+  // ruler along length
+  for (let x = 0; x <= v.L + 1; x += 200){ const s = textSprite(nf.format(x/100) + ' м', {color:ink2, size:0.28, weight:500}); s.position.set(M(x), 0.03, M(-80)); gStatic.add(s); }
+  const sL = textSprite(nf.format(v.L/100) + ' м', {color:css('--ink'), size:0.3}); sL.position.set(M(v.L+40), 0.03, M(-115)); gStatic.add(sL);
+  const sW = textSprite(nf.format(v.W/100) + ' × ' + nf.format(v.H/100) + ' м', {color:ink2, size:0.2, weight:500}); sW.position.set(M(v.L+60), M(H0+v.H+25), M(v.W/2)); gStatic.add(sW);
+}
+
+const meshes = new Map();
+function renderUnits(){
+  disposeGroup(gUnits); meshes.clear();
+  const v = av(); const sp = 'v:'+v.id; const issues = S._issues || new Map();
+  const n = S.units.length; const labelsOn = showLabels && n <= 220;
+  S.units.forEach((u, i) => {
+    if (u.space === '__limbo') return; if (u.space.startsWith('v:') && u.space !== sp) return;
+    const t = typeOf(u); const o = origin(u.space);
+    const g = new THREE.BoxGeometry(M(u.dx), M(u.dy), M(u.dz));
+    const mat = new THREE.MeshLambertMaterial({color:t.color, transparent:true, opacity:0.86, emissive:0x000000});
+    const m = new THREE.Mesh(g, mat);
+    m.position.set(M(o.x+u.x+u.dx/2), M(o.y+u.y+u.dy/2), M(o.z+u.z+u.dz/2));
+    const bad = issues.has(u.uid);
+    const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({color: bad ? css('--danger') : new THREE.Color(t.color).multiplyScalar(0.55)}));
+    m.add(e); m.userData = {uid:u.uid, edges:e, bad};
+    if (labelsOn && Math.min(u.dx,u.dz) >= 60){
+      const s = textSprite((i+1) + '. ' + t.name, {color:'#1d252c', size:Math.min(0.26, Math.max(0.16, Math.min(u.dx,u.dz)/500)), depth:true, weight:600});
+      s.position.set(0, M(u.dy/2) + 0.06, 0); m.add(s);
+    }
+    gUnits.add(m); meshes.set(u.uid, m);
+  });
+  applySel();
+}
+function applySel(){
+  const acc = new THREE.Color(css('--accent'));
+  meshes.forEach((m, id) => { const on = id === selUid;
+    m.material.emissive.set(on ? acc : 0x000000); m.material.emissiveIntensity = on ? 0.32 : 0; m.material.opacity = on ? 0.95 : 0.86;
+    m.userData.edges.material.color.set(on ? css('--ink') : (m.userData.bad ? css('--danger') : new THREE.Color(typeOf(unitById(id)).color).multiplyScalar(0.55))); });
+}
+function buildLabels(){
+  disposeGroup(gLabels);
+  const v = av(); const st = stats(v); if (!st.ax) return;
+  const ink = css('--ink'), danger = css('--danger');
+  st.ax.groups.forEach(g => { const per = g.load/g.n; const over = g.load > g.limit + 0.5;
+    g.xs.forEach(x => { const s = textSprite(fmtT(per), {color: over ? danger : ink, size:0.34}); s.position.set(M(x), 0.03, M(v.W+130)); gLabels.add(s); }); });
+}
+
+function setView(k){
+  const v = av(); const x0 = (v.kind === 'cont' ? -20 : -360), x1 = v.L + 20;
+  const cx = M((x0+x1)/2), cz = M(v.W/2); const ty = M(v.deckH + v.H/2) * 0.7;
+  const spanL = M(x1-x0), spanW = M(v.W + 2*(DOCK_GAP+DOCK_W) + 120);
+  const vf = camera.fov*Math.PI/180, hf = 2*Math.atan(Math.tan(vf/2)*camera.aspect);
+  const fit = (h, vv) => Math.max(h/2/Math.tan(hf/2), vv/2/Math.tan(vf/2));
+  let dir, dist, target = [cx, ty, cz];
+  if (k === 'top'){ dir = [0,1,0.0001]; dist = fit(spanL*1.3, spanW*1.15); target = [cx, 0, cz]; }
+  else if (k === 'side'){ dir = [0,0.14,1]; dist = fit(spanL*1.1, M(v.deckH+v.H)*2.2) + M(v.W/2); }
+  else if (k === 'rear'){ dir = [1,0.3,0]; dist = fit(M(v.W)*3.2, M(v.deckH+v.H)*1.9) + M(v.L/2); target = [M(v.L/2), ty, cz]; }
+  else { dir = [0.62,0.62,0.78]; dist = fit(spanL*1.2, spanL*0.7); }
+  const n = Math.hypot(...dir); dir = dir.map(d => d/n);
+  camera.position.set(target[0]+dir[0]*dist, target[1]+dir[1]*dist, target[2]+dir[2]*dist);
+  controls.target.set(...target); controls.update();
+  document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === k));
+}
+let curView = 'iso';
+function resize(){ const r = stage.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height, false); camera.aspect = r.width/r.height; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(stage);
+(function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+
+/* ============================== issues ============================== */
+function computeIssues(){
+  const m = new Map();
+  for (const u of S.units){ if (u.space === '__limbo') continue; const R = validate(u.space, u, typeOf(u), u); if (R.length) m.set(u.uid, R); }
+  S._issues = m; return m;
+}
+
+/* ============================== interaction ============================== */
+const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2();
+function setRay(e){ const r = canvas.getBoundingClientRect(); ndc.x = ((e.clientX-r.left)/r.width)*2-1; ndc.y = -((e.clientY-r.top)/r.height)*2+1; ray.setFromCamera(ndc, camera); }
+function pick(e){ setRay(e); const h = ray.intersectObjects([...meshes.values()], false); return h.length ? h[0].object.userData.uid : null; }
+function planeHit(yCm){ const p = new THREE.Vector3(); return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0), -M(yCm)), p) ? {x:p.x*100, z:p.z*100} : null; }
+
+let drag = null, downEmpty = null;
+const statusEl = document.getElementById('status');
+function showStatus(t, bad){ statusEl.textContent = t; statusEl.className = 'status' + (bad ? ' bad' : ''); statusEl.style.display = t ? 'block' : 'none'; }
+
+canvas.addEventListener('pointerdown', e => {
+  hideCtx(); if (e.button === 2) return;
+  const id = pick(e);
+  if (id){ select(id); drag = {u:unitById(id), x0:e.clientX, y0:e.clientY, active:false, pid:e.pointerId}; controls.enabled = false; }
+  else { drag = null; downEmpty = {x:e.clientX, y:e.clientY}; }
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (!drag.active){
+    if (Math.hypot(e.clientX-drag.x0, e.clientY-drag.y0) < 5) return;
+    const u = drag.u;
+    if (onTop(u).length){ toast('Сначала снимите места, стоящие сверху'); drag = null; controls.enabled = true; return; }
+    drag.active = true; drag.before = snap(); drag.prev = {...u};
+    try { canvas.setPointerCapture(drag.pid); } catch(_){}
+    setRay(e); const o = origin(u.space); const p = planeHit(o.y + u.y) || {x:o.x+u.x+u.dx/2, z:o.z+u.z+u.dz/2};
+    drag.off = {x:p.x - (o.x+u.x+u.dx/2), z:p.z - (o.z+u.z+u.dz/2)};
+  }
+  dragMove(e);
+});
+function snapEdges(sp, b, u){
+  const T = 6; const B = bounds(sp);
+  const xs = [], zs = [];
+  if (B){ xs.push([0,'l'],[B.L,'r']); zs.push([0,'l'],[B.W,'r']); }
+  for (const w of others(sp,u)){ xs.push([w.x,'r'],[w.x+w.dx,'l'],[w.x,'l'],[w.x+w.dx,'r']); zs.push([w.z,'r'],[w.z+w.dz,'l'],[w.z,'l'],[w.z+w.dz,'r']); }
+  let bx = null, bd = T; for (const [p,s] of xs){ const d = s === 'l' ? Math.abs(b.x-p) : Math.abs(b.x+b.dx-p); if (d < bd){ bd = d; bx = s === 'l' ? p : p-b.dx; } } if (bx !== null) b.x = bx;
+  let bz = null; bd = T; for (const [p,s] of zs){ const d = s === 'l' ? Math.abs(b.z-p) : Math.abs(b.z+b.dz-p); if (d < bd){ bd = d; bz = s === 'l' ? p : p-b.dz; } } if (bz !== null) b.z = bz;
+}
+function dragMove(e){
+  setRay(e); const u = drag.u; const v = av(); let sp = null, cx, cz;
+  const pv = planeHit(v.deckH);
+  if (pv){ cx = pv.x - drag.off.x; cz = pv.z - drag.off.z; if (cx >= 0 && cx <= v.L && cz >= 0 && cz <= v.W) sp = 'v:'+v.id; }
+  if (!sp){ const pg = planeHit(0); if (!pg) return; cx = pg.x - drag.off.x; cz = pg.z - drag.off.z;
+    for (const d of ['d1','d2']){ const o = origin(d), B = bounds(d); if (cx >= o.x-40 && cx <= o.x+B.L+40 && cz >= o.z-40 && cz <= o.z+B.W+40){ sp = d; cx -= o.x; cz -= o.z; break; } }
+    if (!sp) sp = 'free'; }
+  const b = {x:cx - u.dx/2, z:cz - u.dz/2, dx:u.dx, dy:u.dy, dz:u.dz, y:0};
+  const B = bounds(sp);
+  if (B){ b.x = Math.max(0, Math.min(B.L - b.dx, b.x)); b.z = Math.max(0, Math.min(B.W - b.dz, b.z)); }
+  snapEdges(sp, b, u); b.x = r1(b.x); b.z = r1(b.z);
+  b.y = dropY(sp, b, u);
+  const R = validate(sp, b, typeOf(u), u);
+  const o = origin(sp); const m = meshes.get(u.uid);
+  if (m){ m.position.set(M(o.x+b.x+b.dx/2), M(o.y+b.y+b.dy/2), M(o.z+b.z+b.dz/2)); m.material.emissive.set(R.length ? css('--danger') : css('--accent')); m.material.emissiveIntensity = R.length ? 0.55 : 0.32; }
+  drag.target = {sp, b, R};
+  if (R.length) showStatus(spaceName(sp) + ': ' + R[0], true);
+  else if (B) showStatus(spaceName(sp) + '   спереди ' + fmtCm(b.x) + '   сзади ' + fmtCm(B.L-b.x-b.dx) + '   слева ' + fmtCm(b.z) + '   справа ' + fmtCm(B.W-b.z-b.dz) + '   от пола ' + fmtCm(b.y) + ' см');
+  else showStatus(spaceName(sp));
+}
+canvas.addEventListener('pointerup', e => {
+  if (drag && drag.active){
+    const {u, target} = drag; showStatus('');
+    if (target && !target.R.length){ pushHist(drag.before); Object.assign(u, {space:target.sp, x:target.b.x, y:target.b.y, z:target.b.z}); refresh(); }
+    else { Object.assign(u, drag.prev); if (target) toast('Не поставить: ' + target.R[0]); renderUnits(); }
+  } else if (!drag && downEmpty && Math.hypot(e.clientX-downEmpty.x, e.clientY-downEmpty.y) < 5){ select(null); }
+  drag = null; downEmpty = null; controls.enabled = true;
+});
+canvas.addEventListener('pointercancel', () => { if (drag && drag.active){ Object.assign(drag.u, drag.prev); renderUnits(); } drag = null; controls.enabled = true; showStatus(''); });
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); const id = pick(e); if (id) select(id); openCtx(e.clientX, e.clientY, id ? unitById(id) : null); });
+
+function reorient(u, mode){
+  const t = typeOf(u); if (mode === 'r' && !t.rotate){ toast('Для «'+t.name+'» поворот запрещён'); return; }
+  if (mode === 't' && !t.tilt){ toast('Для «'+t.name+'» кантование запрещено'); return; }
+  if (onTop(u).length){ toast('Сначала снимите места, стоящие сверху'); return; }
+  let d;
+  if (mode === 'r') d = [u.dz, u.dy, u.dx];
+  else { const os = orients(t); const cur = os.findIndex(o => o[0]===u.dx && o[1]===u.dy && o[2]===u.dz);
+    for (let k = 1; k <= os.length; k++){ const o = os[(cur+k) % os.length]; if (o[1] !== u.dy){ d = o; break; } } }
+  if (!d) return;
+  const b = {x:u.x, z:u.z, dx:d[0], dy:d[1], dz:d[2], y:0}; const B = bounds(u.space);
+  if (B){ b.x = Math.max(0, Math.min(B.L-b.dx, b.x)); b.z = Math.max(0, Math.min(B.W-b.dz, b.z)); }
+  b.y = dropY(u.space, b, u); const R = validate(u.space, b, t, u);
+  if (R.length){ toast('Не получается: ' + R[0]); return; }
+  pushHist(); Object.assign(u, b); refresh();
+}
+function nudge(u, dx, dz){
+  if (onTop(u).length){ toast('Сначала снимите места, стоящие сверху'); return; }
+  const b = {x:r1(u.x+dx), z:r1(u.z+dz), dx:u.dx, dy:u.dy, dz:u.dz, y:0}; b.y = dropY(u.space, b, u);
+  const R = validate(u.space, b, typeOf(u), u); if (R.length){ showStatus(R[0], true); setTimeout(() => showStatus(''), 1200); return; }
+  pushHist(); Object.assign(u, b); refresh();
+}
+function moveOne(u, sp){
+  if (u.space === sp) return;
+  if (onTop(u).length){ toast('Сначала снимите места, стоящие сверху'); return; }
+  pushHist(); const left = moveUnits([u], sp);
+  if (left){ hist.pop(); toast('Не помещается в ' + spaceName(sp)); }
+  refresh();
+}
+function moveAll(sp){
+  const v = av(); const list = S.units.filter(u => u.space === 'v:'+v.id);
+  if (!list.length){ toast('В этом транспорте нет мест'); return; }
+  pushHist(); moveUnits(list, sp); refresh(); toast('Выгружено в ' + spaceName(sp) + ': ' + list.length);
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hideCtx();
+  if (e.target.closest && e.target.closest('input,textarea,select,dialog')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); undo(); return; }
+  const u = selUid && unitById(selUid); if (!u) return;
+  const k = e.key.toLowerCase(); const step = e.shiftKey ? 10 : 1;
+  if (k === 'r' || k === 'к'){ reorient(u,'r'); }
+  else if (k === 't' || k === 'е'){ reorient(u,'t'); }
+  else if (k === 'delete' || k === 'backspace'){ moveOne(u,'d1'); }
+  else if (k === 'escape'){ select(null); }
+  else if (k === 'arrowup'){ nudge(u,-step,0); } else if (k === 'arrowdown'){ nudge(u,step,0); }
+  else if (k === 'arrowleft'){ nudge(u,0,-step); } else if (k === 'arrowright'){ nudge(u,0,step); }
+  else return;
+  e.preventDefault();
+});
+
+/* ============================== context menu ============================== */
+const ctx = document.getElementById('ctx');
+function hideCtx(){ ctx.style.display = 'none'; }
+document.addEventListener('pointerdown', e => { if (!ctx.contains(e.target)) hideCtx(); });
+function clearancesHTML(u){
+  const B = bounds(u.space); if (!B) return '<div class="muted" style="padding:2px 10px 6px">Место вне транспорта</div>';
+  const rows = [['Задняя стенка', B.L-u.x-u.dx],['Передняя стенка', u.x],['Левая стенка', u.z],['Правая стенка', B.W-u.z-u.dz],['Пол', u.y],['Потолок', B.H-u.y-u.dy]];
+  return '<dl class="kv">' + rows.map(r => '<dt>'+r[0]+'</dt><dd>'+fmtCm(r[1])+' см</dd>').join('') + '</dl>';
+}
+function openCtx(x, y, u){
+  const v = av(); let h = '';
+  if (u){ const t = typeOf(u);
+    h += '<div class="t">'+esc(t.name)+'</div>';
+    h += '<button data-a="show">Показать в списке</button>';
+    h += '<button data-a="rot"'+(t.rotate?'':' disabled')+'>Повернуть<span class="k">R</span></button>';
+    h += '<button data-a="tilt"'+(t.tilt?'':' disabled')+'>Кантовать<span class="k">T</span></button>';
+    h += '<div class="g">Переместить в</div>';
+    S.vehicles.forEach((vv,i) => { if (u.space !== 'v:'+vv.id) h += '<button data-a="mv" data-sp="v:'+vv.id+'">ТС '+(i+1)+', '+esc(vv.name)+'</button>'; });
+    if (u.space !== 'd1') h += '<button data-a="mv" data-sp="d1">Док 1</button>';
+    if (u.space !== 'd2') h += '<button data-a="mv" data-sp="d2">Док 2</button>';
+    h += '<div class="g">Отступы</div>' + clearancesHTML(u) + '<hr>';
+  }
+  h += '<div class="g">'+esc(v.name)+'</div>';
+  h += '<button data-a="pack">Пересчитать расстановку</button>';
+  h += '<button data-a="all" data-sp="d1">Выгрузить всё в Док 1</button><button data-a="all" data-sp="d2">Выгрузить всё в Док 2</button>';
+  ctx.innerHTML = h; ctx.style.display = 'block';
+  const r = ctx.getBoundingClientRect(); ctx.style.left = Math.min(x, innerWidth - r.width - 8) + 'px'; ctx.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
+  ctx.onclick = ev => { const b = ev.target.closest('button'); if (!b || b.disabled) return; hideCtx(); const a = b.dataset.a;
+    if (a === 'show') showInList(u.tid); else if (a === 'rot') reorient(u,'r'); else if (a === 'tilt') reorient(u,'t');
+    else if (a === 'mv') moveOne(u, b.dataset.sp); else if (a === 'pack') autoPack(); else if (a === 'all') moveAll(b.dataset.sp); };
+}
+
+/* ============================== actions ============================== */
+function autoPack(){
+  const v = av(); const sp = 'v:'+v.id;
+  const list = S.units.filter(u => u.space === sp || !u.space.startsWith('v:'));
+  if (!list.length){ toast('Нет мест для расстановки. Создайте их или импортируйте пакинг'); return; }
+  pushHist();
+  const un = pack(sp, list, S.strategy);
+  balance(v);
+  if (un.length) toDock(un, 'd1');
+  refresh();
+  toast(un.length ? 'Погружено ' + (list.length-un.length) + ' из ' + list.length + '. Остальные в Док 1, можно добавить ещё транспорт' : 'Погружено всё: ' + list.length + ' мест');
+}
+function select(id){ selUid = id; applySel(); renderSel(); renderList(); }
+function showInList(tid){ const el = document.querySelector('.ci[data-tid="'+tid+'"]'); if (el){ el.scrollIntoView({block:'nearest'}); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } }
+
+/* ============================== UI rendering ============================== */
+const ICON_BOX = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>';
+const ICON_EDIT = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>';
+const ICON_DEL = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
+
+function renderList(){
+  const el = document.getElementById('clist'); const v = av(); const sp = 'v:'+v.id;
+  document.getElementById('cntTypes').textContent = S.types.length ? S.types.length + ' поз.' : '';
+  if (!S.types.length){ el.innerHTML = '<div class="empty"><p>Пока нет ни одного места. Создайте его вручную или загрузите пакинг-лист из Excel.</p></div>'; }
+  else {
+    const selT = selUid && unitById(selUid) ? unitById(selUid).tid : null;
+    el.innerHTML = S.types.map((t,i) => {
+      const us = S.units.filter(u => u.tid === t.id); const inV = us.filter(u => u.space === sp).length; const inOther = us.filter(u => u.space.startsWith('v:') && u.space !== sp).length; const out = us.length - inV - inOther;
+      const place = [inV ? 'В этом ТС: ' + inV : '', inOther ? 'в других ТС: ' + inOther : '', out ? '<span class="bad">не погружено: ' + out + '</span>' : ''].filter(Boolean).join(', ');
+      return '<div class="ci'+(t.id===selT?' sel':'')+'" data-tid="'+t.id+'"><span class="dot" style="background:'+t.color+'">'+ICON_BOX+'</span>'+
+        '<div><div class="ci-title"><b>'+(i+1)+'.</b> '+esc(t.name)+'</div>'+
+        '<div class="ci-sub">'+esc(t.pkg)+', '+fmtCm(t.L)+' × '+fmtCm(t.W)+' × '+fmtCm(t.H)+' см, '+fmtKg(t.weight)+', '+t.qty+' шт</div>'+
+        '<div class="ci-flags"><span>Ярусы: '+(t.stack ? (t.maxTiers ? 'до '+t.maxTiers : 'без огр.') : 'нельзя')+'</span><span>Поворот: '+(t.rotate?'да':'нет')+'</span><span>Кант.: '+(t.tilt?'да':'нет')+'</span>'+(t.maxTop?'<span>Сверху до '+fmtKg(t.maxTop)+'</span>':'')+'</div>'+
+        '<div class="ci-place">'+place+'</div></div>'+
+        '<div class="ci-act"><button data-edit="'+t.id+'" title="Изменить" aria-label="Изменить">'+ICON_EDIT+'</button><button data-del="'+t.id+'" title="Удалить" aria-label="Удалить">'+ICON_DEL+'</button></div></div>';
+    }).join('');
+  }
+  const N = S.units.length, W = S.units.reduce((s,u)=>s+typeOf(u).weight,0), V = S.units.reduce((s,u)=>s+u.dx*u.dy*u.dz,0)/1e6;
+  document.getElementById('totals').innerHTML = 'Мест <b>'+N+'</b> Вес <b>'+fmtKg(W)+'</b> Объём <b>'+nf2.format(V)+' м³</b>';
+}
+document.getElementById('clist').addEventListener('click', e => {
+  const ed = e.target.closest('[data-edit]'), dl = e.target.closest('[data-del]'); const row = e.target.closest('.ci');
+  if (ed){ openCargo(S.types.find(t => t.id === ed.dataset.edit)); return; }
+  if (dl){ const t = S.types.find(x => x.id === dl.dataset.del); if (!confirm('Удалить «'+t.name+'» ('+t.qty+' шт)?')) return; pushHist(); S.types = S.types.filter(x => x !== t); S.units = S.units.filter(u => u.tid !== t.id); if (selUid && !unitById(selUid)) selUid = null; refresh(); return; }
+  if (row){ const v = av(); const us = S.units.filter(u => u.tid === row.dataset.tid); const u = us.find(x => x.space === 'v:'+v.id) || us.find(x => !x.space.startsWith('v:')) || us[0];
+    if (u){ if (u.space.startsWith('v:') && u.space !== 'v:'+v.id){ S.activeV = u.space.slice(2); refresh(true); } select(u.uid); } }
+});
+
+function renderTabs(){
+  const el = document.getElementById('vtabs');
+  el.innerHTML = S.vehicles.map((v,i) => '<button class="vtab" role="tab" aria-selected="'+(v.id===S.activeV)+'" data-v="'+v.id+'"><small>ТС '+(i+1)+'</small>'+esc(v.name)+'</button>').join('') +
+    '<button class="vtab add" id="addVeh" title="Добавить транспорт">+ Транспорт</button>';
+}
+document.getElementById('vtabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'addVeh'){ openVehicle(null); return; }
+  if (b.dataset.v === S.activeV){ openVehicle(av()); return; }
+  S.activeV = b.dataset.v; selUid = null; refresh(true); setView('iso');
+});
+
+function bar(label, val, max, unit){
+  const p = max ? val/max : 0; const cls = p > 1.0001 ? 'over' : (p > 0.95 ? 'near' : '');
+  return '<div class="bar-m"><div class="lbl"><span>'+label+'</span><span>'+unit(val)+' из '+unit(max)+'</span></div><div class="track"><div class="fill '+cls+'" style="width:'+Math.min(100,p*100).toFixed(1)+'%"></div></div></div>';
+}
+function renderRight(){
+  const v = av(); const st = stats(v); const idx = S.vehicles.indexOf(v)+1;
+  const opts = Object.entries(PRESETS).map(([k,p]) => '<option value="'+k+'"'+(k===v.preset?' selected':'')+'>'+esc(p.name)+'</option>').join('');
+  document.getElementById('vehSec').innerHTML = '<h2>Транспорт '+idx+' <button class="btn sm" id="vehEdit">Параметры</button></h2>'+
+    '<select class="inp" id="vehQuick" style="width:100%" aria-label="Тип грузового пространства">'+opts+'</select>'+
+    '<div class="vinfo">'+fmtCm(v.L/100)+' × '+fmtCm(v.W/100)+' × '+fmtCm(v.H/100)+' м, '+nf.format(r1(v.L*v.W*v.H/1e6))+' м³, грузоподъёмность '+fmtT(v.payload)+(v.kind==='cont'?'':', полная масса до '+fmtT(v.gross))+'</div>';
+  const capV = v.L*v.W*v.H;
+  const unplaced = S.units.filter(u => !u.space.startsWith('v:'));
+  document.getElementById('loadSec').innerHTML = '<h2>Загрузка</h2>'+
+    bar('Вес груза', st.W, v.payload, fmtT)+ bar('Объём', st.vol/1e6, capV/1e6, x => nf2.format(x)+' м³')+
+    '<div class="grid2"><div><span>Мест в ТС</span>'+st.us.length+'</div><div><span>Погрузочные метры</span>'+nf2.format(st.ldm)+' м</div>'+
+    '<div><span>Центр тяжести от передней стенки</span>'+(st.W?nf2.format(st.cx/100)+' м':'—')+'</div><div><span>Смещение ЦТ от оси кузова</span>'+(st.W?fmtCm(st.cz - v.W/2)+' см':'—')+'</div>'+
+    '<div><span>Высота ЦТ груза от пола</span>'+(st.W?fmtCm(st.cy)+' см':'—')+'</div><div><span>Не погружено</span>'+unplaced.length+(unplaced.length?' ('+fmtT(unplaced.reduce((s,u)=>s+typeOf(u).weight,0))+')':'')+'</div></div>';
+  let ax = '';
+  if (st.ax){
+    ax = '<h2>Нагрузка на оси <span class="sub">с учётом снаряжённой массы</span></h2>';
+    st.ax.groups.forEach(g => { const over = g.load > g.limit + 0.5;
+      ax += '<div class="axle"><div class="lbl"><span>'+g.name+(g.n>1?' ('+g.n+')':'')+'</span><b class="'+(over?'over':'')+'">'+fmtT(g.load)+' / '+fmtT(g.limit)+'</b></div>'+
+        '<div class="track"><div class="fill '+(over?'over':(g.load/g.limit>0.95?'near':''))+'" style="width:'+Math.min(100,g.load/g.limit*100).toFixed(1)+'%"></div></div>'+
+        '<div class="note">'+(g.n>1?'по '+fmtT(g.load/g.n)+' на ось, ':'')+'от груза '+fmtT(g.cargo)+'</div></div>'; });
+    const gross = tareOf(v) + st.W;
+    ax += bar('Полная масса', gross, v.gross, fmtT);
+  } else {
+    const fr = st.W ? st.frontHalf/st.W*100 : 50;
+    ax = '<h2>Баланс по длине</h2>'+
+      '<div class="grid2"><div><span>Передняя половина</span>'+nf.format(fr)+'%</div><div><span>Задняя половина</span>'+nf.format(100-fr)+'%</div>'+
+      '<div><span>Смещение ЦТ от середины</span>'+(st.W?fmtCm(st.cx - v.L/2)+' см':'—')+'</div><div><span>Ориентир</span>не более 60% веса в одной половине</div></div>';
+  }
+  document.getElementById('axleSec').innerHTML = ax;
+  // warnings
+  const W = [];
+  if (st.W > v.payload + 0.5) W.push(['e','Перегруз на '+fmtKg(st.W - v.payload)+' сверх грузоподъёмности']);
+  if (st.ax){
+    st.ax.groups.forEach(g => { if (g.load > g.limit + 0.5) W.push(['e', g.name+': превышение на '+fmtKg(g.load-g.limit)]); });
+    const gross = tareOf(v) + st.W; if (gross > v.gross + 0.5) W.push(['e','Полная масса превышена на '+fmtKg(gross-v.gross)]);
+    if (st.ax.front < 0) W.push(['e','Центр тяжести груза позади осей: передние оси разгружаются']);
+    else if (st.W && st.ax.groups[0].load < 0.2*(tareOf(v)+st.W)) W.push(['w','На переднюю ось приходится меньше 20% массы, управляемость ухудшится']);
+  } else if (st.W){ const fr = st.frontHalf/st.W; if (fr > 0.6 || fr < 0.4) W.push(['w','Больше 60% веса в одной половине контейнера']); }
+  if (st.W && Math.abs(st.cz - v.W/2) > v.W*0.05) W.push(['w','Груз смещён к борту на '+fmtCm(Math.abs(st.cz - v.W/2))+' см']);
+  const iss = S._issues; let nb = 0; const reasons = new Map();
+  st.us.forEach(u => { const r = iss.get(u.uid); if (r){ nb++; r.forEach(x => reasons.set(x.replace(/«.*?»/,'').trim(), 1)); } });
+  if (nb) W.push(['e', nb+' мест с нарушениями укладки: '+[...reasons.keys()].slice(0,3).join('; ')]);
+  const unp = unplaced.length; if (unp) W.push(['w', unp+' мест ещё не погружено']);
+  document.getElementById('warnSec').innerHTML = '<h2>Замечания</h2><ul class="warns">'+(W.length ? W.map(w => '<li class="'+(w[0]==='w'?'w':'')+'">'+esc(w[1])+'</li>').join('') : '<li class="ok">Нарушений нет</li>')+'</ul>';
+}
+document.getElementById('vehSec').addEventListener('click', e => { if (e.target.id === 'vehEdit') openVehicle(av()); });
+document.getElementById('vehSec').addEventListener('change', e => {
+  if (e.target.id !== 'vehQuick') return; pushHist(); const v = av(); const nv = makeVehicle(e.target.value); nv.id = v.id; Object.keys(v).forEach(k => delete v[k]); Object.assign(v, nv);
+  refresh(true); setView('iso');
+  const bad = S.units.filter(u => u.space === 'v:'+v.id && S._issues.has(u.uid)).length;
+  if (bad) toast(bad + ' мест не помещаются в новый кузов. Нажмите «Расставить автоматически»');
+});
+
+function renderSel(){
+  const el = document.getElementById('selcard'); const u = selUid && unitById(selUid);
+  if (!u){ el.style.display = 'none'; return; }
+  const t = typeOf(u); const R = (S._issues && S._issues.get(u.uid)) || []; const n = S.units.indexOf(u)+1;
+  el.style.display = 'block';
+  el.innerHTML = '<h3><span class="dot" style="width:14px;height:14px;background:'+t.color+'"></span>'+n+'. '+esc(t.name)+'</h3>'+
+    '<div class="meta">'+esc(t.pkg)+', '+fmtKg(t.weight)+', '+spaceName(u.space)+(u.y>EPS?', ярус '+tierOf(u):'')+'</div>'+
+    '<dl class="kv"><dt>Габариты (Д × В × Ш)</dt><dd>'+fmtCm(u.dx)+' × '+fmtCm(u.dy)+' × '+fmtCm(u.dz)+'</dd>'+
+    (bounds(u.space) ? '<dt>Спереди / сзади</dt><dd>'+fmtCm(u.x)+' / '+fmtCm(bounds(u.space).L-u.x-u.dx)+' см</dd><dt>Слева / справа</dt><dd>'+fmtCm(u.z)+' / '+fmtCm(bounds(u.space).W-u.z-u.dz)+' см</dd><dt>От пола / до потолка</dt><dd>'+fmtCm(u.y)+' / '+fmtCm(bounds(u.space).H-u.y-u.dy)+' см</dd>' : '')+
+    '</dl>'+(R.length ? '<div class="reasons">'+R.map(esc).join('<br>')+'</div>' : '')+
+    '<div class="row"><button class="btn sm" data-s="r"'+(t.rotate?'':' disabled')+'>Повернуть</button><button class="btn sm" data-s="t"'+(t.tilt?'':' disabled')+'>Кантовать</button>'+
+    (u.space.startsWith('v:') ? '<button class="btn sm" data-s="d1">В Док 1</button>' : '<button class="btn sm" data-s="veh">В ТС</button>')+'</div><button class="x" data-s="x" aria-label="Снять выделение">✕</button>';
+}
+document.getElementById('selcard').addEventListener('click', e => {
+  const b = e.target.closest('[data-s]'); if (!b) return; const u = unitById(selUid); if (!u) return; const a = b.dataset.s;
+  if (a === 'r') reorient(u,'r'); else if (a === 't') reorient(u,'t'); else if (a === 'd1') moveOne(u,'d1'); else if (a === 'veh') moveOne(u,'v:'+av().id); else if (a === 'x') select(null);
+});
+
+let lastV = null;
+function refresh(rebuildStatic){
+  const v = av(); if (rebuildStatic || lastV !== v.id + v.L + v.W + v.H + v.preset + v.deckH){ buildStatic(); lastV = v.id + v.L + v.W + v.H + v.preset + v.deckH; }
+  computeIssues(); renderUnits(); buildLabels(); renderTabs(); renderList(); renderRight(); renderSel();
+  document.getElementById('planName').value = S.name; document.getElementById('strategy').value = S.strategy;
+  autosave();
+}
+
+/* ============================== toast ============================== */
+let toastT = null; const toastEl = document.getElementById('toast');
+function toast(t){ toastEl.textContent = t; toastEl.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => toastEl.style.display = 'none', 3600); }
+
+/* ============================== cargo dialog ============================== */
+const cargoDlg = document.getElementById('cargoDlg'); let editingType = null;
+document.getElementById('cf_pkg').innerHTML = PKG.map(p => '<option>'+p+'</option>').join('');
+document.getElementById('cf_preset').addEventListener('change', e => { const p = e.target.value.split(','); if (!e.target.value) return;
+  if (p[0]) cf('L').value = p[0]; if (p[1]) cf('W').value = p[1]; if (p[2]) cf('H').value = p[2];
+  if (e.target.selectedIndex <= 3){ cf('pkg').value = 'Паллета'; } else if (e.target.selectedIndex <= 5){ cf('pkg').value = 'Пачка листов'; cf('tilt').checked = false; } else { cf('pkg').value = 'Труба / связка'; } });
+const cf = id => document.getElementById('cf_'+id);
+function openCargo(t){
+  editingType = t || null; document.getElementById('cargoDlgTitle').textContent = t ? 'Изменить грузовое место' : 'Новое грузовое место';
+  const d = t || {name:'', pkg:'Ящик', L:'', W:'', H:'', weight:'', qty:1, stack:true, rotate:true, tilt:false, maxTiers:0, maxTop:0, color:PALETTE[S.types.length % PALETTE.length]};
+  cf('name').value = d.name; cf('pkg').value = d.pkg; cf('L').value = d.L; cf('W').value = d.W; cf('H').value = d.H; cf('wt').value = d.weight; cf('qty').value = d.qty;
+  cf('stack').checked = d.stack; cf('rotate').checked = d.rotate; cf('tilt').checked = d.tilt; cf('tiers').value = d.maxTiers; cf('top').value = d.maxTop; cf('color').value = d.color; cf('preset').value = ''; cf('err').textContent = '';
+  cargoDlg.showModal(); cf('name').focus();
+}
+document.getElementById('cargoForm').addEventListener('submit', e => {
+  if (e.submitter && e.submitter.value === 'cancel') return;
+  const L = +cf('L').value, W = +cf('W').value, H = +cf('H').value, wt = +cf('wt').value, q = Math.round(+cf('qty').value);
+  const name = cf('name').value.trim();
+  let err = ''; if (!name) err = 'Укажите наименование'; else if (!(L>0 && W>0 && H>0)) err = 'Укажите длину, ширину и высоту больше нуля'; else if (!(wt>=0)) err = 'Укажите вес'; else if (!(q>=1 && q<=999)) err = 'Количество от 1 до 999';
+  if (err){ e.preventDefault(); cf('err').textContent = err; return; }
+  pushHist();
+  const data = {name, pkg:cf('pkg').value, L:r1(L), W:r1(W), H:r1(H), weight:wt, qty:q, stack:cf('stack').checked, rotate:cf('rotate').checked, tilt:cf('tilt').checked, maxTiers:Math.max(0,Math.round(+cf('tiers').value||0)), maxTop:Math.max(0,+cf('top').value||0), color:cf('color').value};
+  if (editingType){
+    const t = editingType; const dimsChanged = t.L !== data.L || t.W !== data.W || t.H !== data.H || t.rotate !== data.rotate || t.tilt !== data.tilt;
+    Object.assign(t, data);
+    if (dimsChanged){ const us = S.units.filter(u => u.tid === t.id); const o = orients(t)[0]; us.forEach(u => { u.dx = o[0]; u.dy = o[1]; u.dz = o[2]; u.space = '__limbo'; }); toDock(us,'d1'); toast('Размеры изменены, места «'+t.name+'» перенесены в Док 1'); }
+    syncUnits(t);
+  } else { const t = Object.assign({id:uid()}, data); S.types.push(t); syncUnits(t); toast('Добавлено в Док 1: '+q+' шт. Перетащите в кузов или нажмите «Расставить автоматически»'); }
+  refresh();
+});
+document.getElementById('addCargoBtn').onclick = () => openCargo(null);
+
+/* ============================== vehicle dialog ============================== */
+const vehDlg = document.getElementById('vehDlg'); let editingVeh = null; let vDraft = null;
+const VF = {
+  common:[['name','Название','text',6],['L','Длина, см'],['W','Ширина, см'],['H','Высота, см'],['payload','Грузоподъёмность, кг'],['deckH','Высота пола от земли, см']],
+  semi:[['gross','Полная масса автопоезда, кг'],['kingpin','Шкворень от передней стенки, см'],['axleX','Центр тележки п/п от передней стенки, см'],['trAxles','Осей у полуприцепа'],['trAxleSpacing','Шаг осей п/п, см'],['wb','Колёсная база тягача, см'],['fw','Седло впереди ведущей оси, см'],['driveAxles','Ведущих осей тягача'],
+    ['tare.steer','Тягач на переднюю ось, кг'],['tare.drive','Тягач на ведущие оси, кг'],['tare.kp','Полуприцеп на сцепку, кг'],['tare.tr','Полуприцеп на свои оси, кг'],
+    ['lim.steer','Допустимо на переднюю ось, кг'],['lim.drive','Допустимо на ведущие оси, кг'],['lim.tr','Допустимо на оси п/п, кг']],
+  rigid:[['gross','Полная масса, кг'],['steerX','Передняя ось от передней стенки, см (минус — впереди)'],['rearX','Задняя ось от передней стенки, см'],['rearAxles','Задних осей'],['tare.steer','Снаряжённая масса на переднюю ось, кг'],['tare.rear','Снаряжённая масса на заднюю ось, кг'],['lim.steer','Допустимо на переднюю ось, кг'],['lim.rear','Допустимо на задние оси, кг']],
+  cont:[]
+};
+const getP = (o,p) => p.split('.').reduce((a,k) => a && a[k], o);
+const setP = (o,p,val) => { const ks = p.split('.'); let a = o; ks.slice(0,-1).forEach(k => { a[k] = a[k] || {}; a = a[k]; }); a[ks[ks.length-1]] = val; };
+function drawVF(){
+  const sec = (title, list) => (title ? '<div class="fs">'+title+'</div>' : '') + list.map(([p,l,type,span]) => '<div class="f'+(span===6?' s6':'')+'"><label for="vf_'+p+'">'+l+'</label><input id="vf_'+p+'" data-p="'+p+'" type="'+(type||'number')+'" '+(type?'':'step="any" min="0"')+' value="'+esc(getP(vDraft,p) ?? '')+'"></div>').join('');
+  let h = sec('', VF.common);
+  if (vDraft.kind === 'semi') h += sec('Оси и снаряжённая масса', VF.semi);
+  if (vDraft.kind === 'rigid') h += sec('Оси и снаряжённая масса', VF.rigid.map(x => x[0]==='steerX' ? [x[0],x[1],'number'] : x));
+  if (vDraft.kind === 'cont') h += '<div class="f s6 muted">Для контейнеров считается баланс по длине и ширине. Нагрузку на оси шасси можно задать, выбрав «Площадка» или «Тент» с размерами контейнера.</div>';
+  document.getElementById('vfFields').innerHTML = h;
+}
+function openVehicle(v){
+  editingVeh = v; vDraft = JSON.parse(JSON.stringify(v || makeVehicle('tent136')));
+  document.getElementById('vehDlgTitle').textContent = v ? 'Параметры транспорта' : 'Новый транспорт';
+  document.getElementById('vf_preset').innerHTML = Object.entries(PRESETS).map(([k,p]) => '<option value="'+k+'"'+(k===vDraft.preset?' selected':'')+'>'+esc(p.name)+'</option>').join('');
+  document.getElementById('vf_delete').style.display = v && S.vehicles.length > 1 ? '' : 'none';
+  document.getElementById('vf_err').textContent = ''; drawVF(); vehDlg.showModal();
+}
+document.getElementById('vf_preset').addEventListener('change', e => { const id = vDraft.id; vDraft = makeVehicle(e.target.value); vDraft.id = id; drawVF(); });
+document.getElementById('vehForm').addEventListener('submit', e => {
+  const val = e.submitter && e.submitter.value;
+  if (val === 'cancel') return;
+  if (val === 'delete'){
+    if (!confirm('Удалить транспорт? Его места переместятся в Док 1.')) { e.preventDefault(); return; }
+    pushHist(); const sp = 'v:'+editingVeh.id; const list = S.units.filter(u => u.space === sp); list.forEach(u => u.space = '__limbo'); toDock(list,'d1');
+    S.vehicles = S.vehicles.filter(v => v !== editingVeh); S.activeV = S.vehicles[0].id; selUid = null; refresh(true); setView('iso'); return;
+  }
+  document.querySelectorAll('#vfFields [data-p]').forEach(i => setP(vDraft, i.dataset.p, i.type === 'text' ? i.value : +i.value));
+  if (!(vDraft.L > 0 && vDraft.W > 0 && vDraft.H > 0 && vDraft.payload > 0)){ e.preventDefault(); document.getElementById('vf_err').textContent = 'Размеры и грузоподъёмность должны быть больше нуля'; return; }
+  if (vDraft.kind === 'semi' && !(vDraft.axleX > vDraft.kingpin && vDraft.wb > 0)){ e.preventDefault(); document.getElementById('vf_err').textContent = 'Тележка полуприцепа должна быть дальше шкворня'; return; }
+  if (vDraft.kind === 'rigid' && !(vDraft.rearX > vDraft.steerX)){ e.preventDefault(); document.getElementById('vf_err').textContent = 'Задняя ось должна быть дальше передней'; return; }
+  ['trAxles','driveAxles','rearAxles'].forEach(k => { if (k in vDraft) vDraft[k] = Math.max(1, Math.round(vDraft[k])); });
+  pushHist();
+  if (editingVeh){ Object.keys(editingVeh).forEach(k => delete editingVeh[k]); Object.assign(editingVeh, vDraft); }
+  else { vDraft.id = uid(); S.vehicles.push(vDraft); S.activeV = vDraft.id; }
+  selUid = null; refresh(true); setView('iso');
+});
+
+/* ============================== import ============================== */
+const importDlg = document.getElementById('importDlg');
+let impRows = null, impHdr = null, impMapping = null, impParsed = [];
+const FIELDS = [
+  ['name','Наименование',true],['pkg','Тип упаковки'],['dims','Габариты одной строкой'],['L','Длина'],['W','Ширина'],['H','Высота'],['weight','Вес',true],['qty','Количество'],['stack','Штабелирование'],['rotate','Поворот'],['tilt','Кантование']
+];
+const ALIAS = {
+  name:{inc:['наимен','назван','описан','товар','груз','name','descr','item','product','позиц','артик','маркир']},
+  pkg:{inc:['упаков','тип','package','pack','вид','тара']},
+  dims:{inc:['габарит','размер','dimension','dims','lxwxh','д х ш х в','дxшxв']},
+  L:{eq:['l','д','дл'],inc:['длин','length']},
+  W:{eq:['w','ш','шир'],inc:['ширин','width']},
+  H:{eq:['h','в','выс'],inc:['высот','height']},
+  weight:{inc:['брутто','gross','вес','масса','weight','кг','kg'],neg:['нетто','net']},
+  qty:{inc:['кол','qty','quantity','шт','мест','pcs','piece','units','ед']},
+  stack:{inc:['штабел','ярус','stack']},
+  rotate:{inc:['поворот','rotat']},
+  tilt:{inc:['кант','tilt','на бок']}
+};
+function norm(h){ return String(h||'').toLowerCase().replace(/[(),.:;\[\]]/g,' ').replace(/\s+/g,' ').trim(); }
+function scoreHeader(h, f){ const n = norm(h); const a = ALIAS[f]; if (!n) return 0;
+  if (a.neg && a.neg.some(x => n.includes(x))) return 0.2;
+  if (a.eq && (a.eq.includes(n) || a.eq.includes(n.split(' ')[0]))) return 3;
+  if (a.inc.some(x => n.includes(x))) return f === 'weight' && n.includes('брутто') ? 4 : 2; return 0; }
+function autoMap(hdr){
+  const m = {}; const used = new Set();
+  const order = ['dims','L','W','H','weight','qty','stack','rotate','tilt','pkg','name'];
+  for (const f of order){ let best = -1, bs = 0; hdr.forEach((h,i) => { if (used.has(i)) return; const s = scoreHeader(h,f); if (s > bs){ bs = s; best = i; } }); if (best >= 0){ m[f] = best; used.add(best); } }
+  if (m.dims !== undefined && (m.L !== undefined && m.W !== undefined && m.H !== undefined)) delete m.dims;
+  return m;
+}
+function setRows(rows){
+  rows = rows.filter(r => r.some(c => String(c).trim() !== ''));
+  if (rows.length < 2){ document.getElementById('impErr').textContent = 'Нужна строка заголовков и хотя бы одна строка данных'; return; }
+  let hi = 0, hs = -1;
+  rows.slice(0,12).forEach((r,i) => { const s = r.reduce((a,c) => a + Math.max(...Object.keys(ALIAS).map(f => scoreHeader(c,f))), 0); if (s > hs){ hs = s; hi = i; } });
+  impHdr = rows[hi].map(c => String(c).trim()); impRows = rows.slice(hi+1); impMapping = autoMap(impHdr);
+  document.getElementById('impErr').textContent = ''; drawMap();
+}
+function num(v){ if (typeof v === 'number') return v; const s = String(v).replace(/\s/g,'').replace(',','.').match(/-?\d+(\.\d+)?/); return s ? +s[0] : NaN; }
+function bool(v, def){ const s = norm(v); if (!s) return def; if (/^(да|yes|y|1|\+|true|можно|x|х|v)$/.test(s)) return true; if (/^(нет|no|n|0|-|false|нельзя)$/.test(s)) return false; return def; }
+function parseRows(){
+  const m = impMapping; const unit = document.getElementById('impUnit').value; const wmode = document.getElementById('impW').value;
+  const dS = document.getElementById('impStack').checked, dR = document.getElementById('impRot').checked, dT = document.getElementById('impTilt').checked;
+  const get = (r,f) => m[f] !== undefined && m[f] !== '' ? r[m[f]] : '';
+  const raw = impRows.map(r => {
+    let L = num(get(r,'L')), W = num(get(r,'W')), H = num(get(r,'H'));
+    if (m.dims !== undefined && m.dims !== ''){ const d = String(get(r,'dims')).replace(/,/g,'.').match(/(\d+(?:\.\d+)?)\s*[x×х*\/]\s*(\d+(?:\.\d+)?)\s*[x×х*\/]\s*(\d+(?:\.\d+)?)/i); if (d){ L = +d[1]; W = +d[2]; H = +d[3]; } }
+    return {r, L, W, H}; });
+  let k = 1;
+  if (unit === 'auto'){ const all = raw.flatMap(x => [x.L,x.W,x.H]).filter(x => x > 0); const mx = Math.max(0,...all);
+    k = mx > 0 && mx <= 20 && all.some(x => x % 1) ? 100 : (mx > 1600 ? 0.1 : 1); }
+  else k = {mm:0.1, cm:1, m:100}[unit];
+  impParsed = raw.map(({r,L,W,H}) => {
+    const qtyRaw = num(get(r,'qty')); const qty = qtyRaw > 0 ? Math.round(qtyRaw) : 1; let w = num(get(r,'weight')); if (wmode === 'row' && w > 0) w = w/qty;
+    const st = get(r,'stack'); let stack = bool(st, dS), maxTiers = 0; const sn = num(st); if (!isNaN(sn) && /^\s*\d+\s*$/.test(String(st))){ if (sn <= 1){ stack = false; } else { stack = true; maxTiers = Math.round(sn); } }
+    const it = {name:String(get(r,'name')||'').trim() || 'Без названия', pkg:String(get(r,'pkg')||'').trim() || 'Ящик', L:r1(L*k), W:r1(W*k), H:r1(H*k), weight:Math.round((w||0)*10)/10, qty, stack, maxTiers, maxTop:0, rotate:bool(get(r,'rotate'),dR), tilt:bool(get(r,'tilt'),dT)};
+    it.ok = it.L > 0 && it.W > 0 && it.H > 0 && w > 0 && qty <= 999; return it; });
+  impParsed._k = k; return impParsed;
+}
+function drawMap(){
+  const opts = i => '<option value="">не использовать</option>' + impHdr.map((h,j) => '<option value="'+j+'"'+(i===j?' selected':'')+'>'+esc(h || 'Столбец '+(j+1))+'</option>').join('');
+  document.getElementById('impMap').innerHTML =
+    '<div class="fs" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-weight:600">Сопоставление столбцов</div>'+
+    '<div class="map">'+FIELDS.map(([f,l]) => '<div class="f"><label for="im_'+f+'">'+l+'</label><select id="im_'+f+'" data-f="'+f+'">'+opts(impMapping[f])+'</select></div>').join('')+'</div>'+
+    '<div class="map"><div class="f"><label for="impUnit">Единицы размеров</label><select id="impUnit"><option value="auto">Определить автоматически</option><option value="mm">миллиметры</option><option value="cm">сантиметры</option><option value="m">метры</option></select></div>'+
+    '<div class="f"><label for="impW">Вес в строке указан</label><select id="impW"><option value="piece">за одно место</option><option value="row">за всю строку</option></select></div>'+
+    '<div class="f"><span class="lab">Если в файле не указано</span><label class="chk"><input type="checkbox" id="impStack" checked> штабелировать</label><label class="chk"><input type="checkbox" id="impRot" checked> поворачивать</label><label class="chk"><input type="checkbox" id="impTilt"> кантовать</label></div>'+
+    '<div class="f"><span class="lab">После импорта</span><label class="chk"><input type="checkbox" id="impPack" checked> сразу расставить в текущий транспорт</label></div></div>'+
+    '<div id="impPrev"></div>';
+  document.getElementById('impMap').querySelectorAll('select,input').forEach(el => el.addEventListener('change', () => { if (el.dataset.f) impMapping[el.dataset.f] = el.value === '' ? '' : +el.value; drawPrev(); }));
+  drawPrev();
+}
+function drawPrev(){
+  const P = parseRows(); const ok = P.filter(x => x.ok); const unitTxt = {0.1:'мм', 1:'см', 100:'м'}[P._k];
+  const places = ok.reduce((s,x)=>s+x.qty,0), wt = ok.reduce((s,x)=>s+x.qty*x.weight,0);
+  document.getElementById('impPrev').innerHTML = '<p class="muted" style="margin:12px 0 0">Распознано строк: '+ok.length+' из '+P.length+(P.length>ok.length?' (без размеров или веса пропускаются)':'')+'. Мест: '+places+', вес '+fmtT(wt)+'. Исходные размеры в '+unitTxt+'.</p>'+
+    '<div class="tablewrap"><table class="t"><thead><tr><th>Наименование</th><th>Упаковка</th><th>Д × Ш × В, см</th><th>Вес места, кг</th><th>Кол-во</th><th>Ярусы</th><th>Поворот</th><th>Кант.</th></tr></thead><tbody>'+
+    P.slice(0,60).map(x => '<tr class="'+(x.ok?'':'bad')+'"><td>'+esc(x.name)+'</td><td>'+esc(x.pkg)+'</td><td class="num">'+(x.L>0?fmtCm(x.L)+' × '+fmtCm(x.W)+' × '+fmtCm(x.H):'нет размеров')+'</td><td class="num">'+(x.weight>0?nf.format(x.weight):'нет веса')+'</td><td class="num">'+x.qty+'</td><td>'+(x.stack?(x.maxTiers?'до '+x.maxTiers:'без огр.'):'нельзя')+'</td><td>'+(x.rotate?'да':'нет')+'</td><td>'+(x.tilt?'да':'нет')+'</td></tr>').join('')+
+    '</tbody></table></div>'+(P.length>60?'<p class="muted">Показаны первые 60 строк</p>':'');
+  const go = document.getElementById('impGo'); go.disabled = !ok.length; go.textContent = ok.length ? 'Добавить '+places+' мест' : 'Добавить места';
+}
+document.getElementById('importBtn').onclick = () => { impRows = null; document.getElementById('impMap').innerHTML = ''; document.getElementById('impErr').textContent = ''; document.getElementById('impFile').value = ''; document.getElementById('impPaste').value = ''; document.getElementById('impGo').disabled = true; importDlg.showModal(); };
+importDlg.addEventListener('click', e => { if (e.target.closest('[data-close]')) importDlg.close(); });
+function readFile(f){
+  if (!f) return; const rd = new FileReader();
+  rd.onload = () => { try {
+    if (typeof XLSX === 'undefined') throw new Error('nolib');
+    const wb = XLSX.read(new Uint8Array(rd.result), {type:'array'}); const ws = wb.Sheets[wb.SheetNames[0]];
+    setRows(XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true}));
+  } catch(err){ document.getElementById('impErr').textContent = err.message === 'nolib' ? 'Не загрузилась библиотека чтения Excel. Вставьте строки через буфер обмена' : 'Не удалось прочитать файл. Проверьте, что это Excel или CSV'; } };
+  rd.readAsArrayBuffer(f);
+}
+document.getElementById('impFile').addEventListener('change', e => readFile(e.target.files[0]));
+const drop = document.getElementById('drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => readFile(e.dataTransfer.files[0]));
+document.getElementById('impParse').onclick = () => {
+  const t = document.getElementById('impPaste').value; if (!t.trim()){ document.getElementById('impErr').textContent = 'Вставьте строки из Excel в поле выше'; return; }
+  const lines = t.replace(/\r/g,'').split('\n'); const sep = t.includes('\t') ? '\t' : (t.includes(';') ? ';' : ',');
+  setRows(lines.map(l => l.split(sep)));
+};
+document.getElementById('impGo').onclick = () => {
+  const ok = parseRows().filter(x => x.ok); if (!ok.length) return; pushHist();
+  ok.forEach(x => { const t = Object.assign({id:uid(), color:PALETTE[S.types.length % PALETTE.length]}, x); delete t.ok; S.types.push(t); syncUnits(t); });
+  importDlg.close();
+  if (document.getElementById('impPack').checked){ const v = av(); const list = S.units.filter(u => !u.space.startsWith('v:') || u.space === 'v:'+v.id); const un = pack('v:'+v.id, list, S.strategy); balance(v); if (un.length) toDock(un,'d1');
+    toast('Импортировано позиций: '+ok.length+'. '+(un.length ? 'Не поместилось мест: '+un.length+', они в Док 1' : 'Всё погружено')); }
+  else toast('Импортировано позиций: '+ok.length+', места в Док 1');
+  refresh();
+};
+document.getElementById('impTemplate').onclick = async () => {
+  const csv = '\ufeffНаименование;Упаковка;Длина, мм;Ширина, мм;Высота, мм;Вес брутто, кг;Кол-во мест;Штабелировать;Поворот;Кантовать\nЛист Hardox 450 10 мм;Пачка листов;6000;2000;150;14200;2;3;да;нет\nТруба 530x8;Труба / связка;12000;430;430;1620;9;да;да;да\nОтводы;Ящик;1400;1100;950;380;4;да;да;нет\n';
+  saveFile('Шаблон пакинга.csv', csv);
+};
+
+/* ============================== plans & files ============================== */
+const plansDlg = document.getElementById('plansDlg');
+plansDlg.addEventListener('click', e => { if (e.target.closest('[data-close]')) plansDlg.close(); });
+document.getElementById('plansBtn').onclick = () => { drawPlans(); plansDlg.showModal(); loadPlans(); };
+async function apiCall(method, path, body){
+  const r = await fetch(API(path), {method, headers: body ? {'Content-Type':'application/json'} : {}, body: body ? JSON.stringify(body) : undefined, cache:'no-store'});
+  if (!r.ok){ let m = ''; try { m = (await r.json()).error || ''; } catch(_){} const e = new Error(m || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+  return r.status === 204 ? null : r.json();
+}
+async function loadPlans(){
+  if (!api) return;
+  try { plansCache = await apiCall('GET','plans'); } catch(e){ plansCache = []; document.getElementById('plStatus').textContent = 'Сервер не ответил: ' + e.message + '. Проверьте соединение и повторите.'; return; }
+  drawPlans();
+}
+function drawPlans(){
+  const st = document.getElementById('plStatus'); const ul = document.getElementById('plList');
+  document.getElementById('plSave').disabled = !api; document.getElementById('plSaveNew').disabled = !api;
+  if (!api){ st.textContent = 'Сервер планов не найден: страница открыта как файл или без серверной части. Текущий план сохраняется в этом браузере автоматически, передать его коллегам можно файлом JSON ниже.'; ul.innerHTML = ''; return; }
+  st.textContent = plansCache.length ? 'Планы хранятся на сервере и доступны всем сотрудникам с доступом к приложению.' : 'Сохранённых планов пока нет. Сохраните текущий, и он появится здесь для всей команды.';
+  ul.innerHTML = plansCache.map(p => '<li><div class="nm">'+esc(p.name)+(p.id===S.planId?' (открыт)':'')+'<small>'+esc(p.summary||'')+', '+new Date(p.updatedAt).toLocaleString('ru-RU',{dateStyle:'short',timeStyle:'short'})+(p.author?', '+esc(p.author):'')+'</small></div><button class="btn sm" data-open="'+p.id+'">Открыть</button><button class="btn sm ghost danger" data-delp="'+p.id+'" aria-label="Удалить план">'+ICON_DEL+'</button></li>').join('');
+}
+function planSummary(){ const W = S.units.reduce((s,u)=>s+typeOf(u).weight,0); return S.vehicles.length+' ТС, '+S.units.length+' мест, '+fmtT(W); }
+function planData(){ return {name:S.name, types:S.types, units:S.units, vehicles:S.vehicles, activeV:S.activeV, strategy:S.strategy}; }
+const authorEl = document.getElementById('plAuthor');
+try { authorEl.value = localStorage.getItem('loadplan.author') || ''; } catch(_){}
+authorEl.addEventListener('change', () => { try { localStorage.setItem('loadplan.author', authorEl.value.trim()); } catch(_){} });
+async function savePlan(asNew){
+  if (!api) return; if (asNew || !S.planId) S.planId = uid() + uid();
+  try { await apiCall('PUT', 'plans/' + encodeURIComponent(S.planId), {name:S.name, summary:planSummary(), author:authorEl.value.trim(), data:planData()}); toast('План сохранён на сервере'); autosave(); loadPlans(); }
+  catch(e){ toast('Не удалось сохранить план: ' + e.message); }
+}
+document.getElementById('plSave').onclick = () => savePlan(false);
+document.getElementById('plSaveNew').onclick = () => savePlan(true);
+document.getElementById('plNew').onclick = () => { if (!confirm('Начать новый пустой план? Несохранённые изменения останутся только в истории отмены.')) return; pushHist(); S = Object.assign(blankState(), {}); selUid = null; plansDlg.close(); refresh(true); setView('iso'); };
+document.getElementById('plList').addEventListener('click', async e => {
+  const o = e.target.closest('[data-open]'), d = e.target.closest('[data-delp]');
+  if (o){ try { const p = await apiCall('GET', 'plans/' + encodeURIComponent(o.dataset.open)); pushHist(); loadPlan(p.data, p.id); plansDlg.close(); toast('Открыт план «'+p.name+'»'); } catch(err){ toast('Не удалось открыть план: ' + err.message); } }
+  if (d){ const p = plansCache.find(x => x.id === d.dataset.delp); if (!p || !confirm('Удалить план «'+p.name+'» для всех?')) return;
+    try { await apiCall('DELETE', 'plans/' + encodeURIComponent(p.id)); if (S.planId === p.id) S.planId = null; loadPlans(); } catch(err){ toast('Не удалось удалить план: ' + err.message); } }
+});
+function loadPlan(d, id){
+  if (!d || !Array.isArray(d.vehicles) || !d.vehicles.length || !Array.isArray(d.types) || !Array.isArray(d.units)) { toast('В файле нет данных плана'); return; }
+  S = {name:d.name || 'План', types:d.types, units:d.units, vehicles:d.vehicles, activeV:d.activeV || d.vehicles[0].id, strategy:d.strategy || 'floor', planId:id || null};
+  selUid = null; refresh(true); setView('iso');
+}
+function saveFile(name, data){
+  const blob = data instanceof Blob ? data : new Blob([data], {type: name.endsWith('.json') ? 'application/json' : (name.endsWith('.csv') ? 'text/csv;charset=utf-8' : 'application/octet-stream')});
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+document.getElementById('exJson').onclick = () => saveFile((S.name||'план').replace(/[\\/:*?"<>|]/g,'_') + '.json', JSON.stringify(planData(), null, 1));
+document.getElementById('exCsv').onclick = () => {
+  const rows = [['№','Наименование','Упаковка','Размещение','X от передней стенки, см','Z от левой стенки, см','Y от пола, см','Длина по X, см','Высота, см','Ширина по Z, см','Ярус','Вес, кг']];
+  S.units.forEach((u,i) => { const t = typeOf(u); rows.push([i+1, t.name, t.pkg, spaceName(u.space) + (vehOf(u.space) ? ' ('+vehOf(u.space).name+')' : ''), r1(u.x), r1(u.z), r1(u.y), u.dx, u.dy, u.dz, u.space.startsWith('v:') ? tierOf(u) : '', t.weight]); });
+  const csv = '\ufeff' + rows.map(r => r.map(c => { const s = String(c).replace('.',','); return /[;"\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }).join(';')).join('\n');
+  saveFile('Ведомость погрузки — ' + (S.name||'план').replace(/[\\/:*?"<>|]/g,'_') + '.csv', csv);
+};
+document.getElementById('exPng').onclick = () => { renderer.render(scene, camera); canvas.toBlob(b => { if (b) saveFile('Схема загрузки — ' + (S.name||'план').replace(/[\\/:*?"<>|]/g,'_') + '.png', b); }, 'image/png'); };
+document.getElementById('jsonFile').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { pushHist(); loadPlan(JSON.parse(rd.result)); plansDlg.close(); toast('План загружен из файла'); } catch(err){ toast('Файл не похож на план загрузки'); } }; rd.readAsText(f); });
+
+/* ============================== misc wiring ============================== */
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { curView = b.dataset.view; setView(curView); });
+document.getElementById('labelsBtn').onclick = e => { showLabels = !showLabels; e.currentTarget.setAttribute('aria-pressed', showLabels); renderUnits(); };
+document.getElementById('packBtn').onclick = autoPack;
+document.getElementById('balanceBtn').onclick = () => { const v = av(); if (!S.units.some(u => u.space === 'v:'+v.id)){ toast('В этом транспорте нет мест'); return; } pushHist(); balance(v); refresh(); toast(v.kind === 'cont' ? 'Груз смещён к центру контейнера' : 'Груз сдвинут для равномерной нагрузки на оси'); };
+document.getElementById('strategy').onchange = e => { S.strategy = e.target.value; autosave(); };
+document.getElementById('undoBtn').onclick = undo;
+document.getElementById('planName').addEventListener('change', e => { S.name = e.target.value.trim() || 'Без названия'; autosave(); });
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => refresh(true));
+
+/* ============================== start ============================== */
+const saved = loadLocal();
+if (saved){ S = saved; S.strategy = S.strategy || 'floor'; } else demo();
+refresh(true); resize(); setView('iso'); setTimeout(() => { resize(); setView('iso'); }, 60);
+
+(async () => {
+  if (location.protocol === 'file:') return;
+  try { const r = await fetch(API('health'), {cache:'no-store'}); if (r.ok){ const j = await r.json(); api = !!j.ok; } } catch(_){}
+  if (plansDlg.open){ drawPlans(); loadPlans(); }
+})();
+})();
+</script>
+</body>
+</html>
